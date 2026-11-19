@@ -58,3 +58,11 @@ A implementação visual foi concluída com GPT-6.2 Sol após a autorização �
 Build, checagem de tipos, lint, formatação, nove cenários de integração e o fluxo no Chromium passaram. A suíte verificou navegação por teclado e reflow de título extenso. DIRECAO_VISUAL.md registra larguras, dimensões, contraste e verificações manuais pendentes. Os resultados cobrem o navegador e serviços locais.
 
 A próxima etapa é a Fase 5A, planejamento de infraestrutura. O Módulo 29 recomenda GPT-6.2 Astra com raciocínio High para definir hospedagem, gestão de ambientes, segredos, backups, recuperação de desastre e custos. Aguardar a confirmação da troca ou autorização para manter a configuração atual.
+
+# Checkpoint da Fase 5A
+
+Planejamento realizado com GPT-6.2 Astra após a autorização “faça”. High era o raciocínio recomendado. O plano está em INFRAESTRUTURA.md e cobre arquitetura de hospedagem, limites atuais do runtime, ambientes, acesso ao banco e ao SMTP, migrações, segredos, observabilidade, versões, reversão e seis cenários de consumo. As metas iniciais propostas são RPO de 24 horas e RTO de quatro horas.
+
+O ensaio tests/ensaio-restauracao.sh recuperou schema e dados sintéticos em outra base PostgreSQL 17 do mesmo cluster. A leitura com o papel restrito confirmou o isolamento e o valor persistido. A recuperação em outro host a partir de cópia externa criptografada segue pendente. A seleção comercial depende de cotação, disponibilidade, limites e autorização. O endpoint de saúde e os serviços locais responderam durante a inspeção.
+
+Próxima etapa: Fase 5B, configuração e implementação. O Módulo 29 recomenda GPT-6.2 Sol Medium para configurar pipelines, serviços, backups, alertas e testes operacionais. Começar pelo ambiente isolado. Aguardar a confirmação da troca ou autorização para manter a configuração atual. O deploy público requer autorização própria.
