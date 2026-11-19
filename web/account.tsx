@@ -56,7 +56,9 @@ export function PublicAccount({ refresh }: { refresh: () => void }) {
             Você enviou o orçamento. O Retivvo ajuda a cuidar do próximo passo.
           </p>
           <div className="row">
-            <Link to="/cadastro">Criar conta</Link>
+            <Link className="primary" to="/cadastro">
+              Criar conta
+            </Link>
             <Link to="/entrar">Entrar</Link>
           </div>
         </>
@@ -291,22 +293,24 @@ export function Profile({
         </label>
         {password("newPassword", true)}
       </ActionForm>
-      <h2>Excluir conta</h2>
-      <p>
-        Encerre as organizações que você administra antes de confirmar a
-        exclusão por e-mail.
-      </p>
-      <ActionForm
-        label="Enviar confirmação de exclusão"
-        action={(fields) =>
-          auth("delete-user", { ...fields, callbackURL: "/" })
-        }
-        onSaved={() =>
-          setNotice("Confira seu e-mail para confirmar a exclusão.")
-        }
-      >
-        {password()}
-      </ActionForm>
+      <section className="account-warning">
+        <h2>Excluir conta</h2>
+        <p>
+          Encerre as organizações que você administra antes de confirmar a
+          exclusão por e-mail.
+        </p>
+        <ActionForm
+          label="Enviar confirmação de exclusão"
+          action={(fields) =>
+            auth("delete-user", { ...fields, callbackURL: "/" })
+          }
+          onSaved={() =>
+            setNotice("Confira seu e-mail para confirmar a exclusão.")
+          }
+        >
+          {password()}
+        </ActionForm>
+      </section>
       {notice && <Notice>{notice}</Notice>}
     </section>
   );

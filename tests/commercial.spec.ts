@@ -71,7 +71,29 @@ test("cadastro, MFA e jornada comercial persistida pelo navegador", async ({
     .fill(address);
   await page.getByLabel("Senha", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Entrar", exact: true }).click();
-  await page.getByRole("link", { name: "Minha conta" }).click();
+  const menu = page.getByRole("button", { name: "Menu", exact: true });
+  const navigation = page.getByRole("navigation", { name: "Principal" });
+  await expect(menu).toHaveAttribute("aria-expanded", "false");
+  await page.keyboard.press("Tab");
+  await page
+    .getByRole("link", { name: "Ir para o conteúdo principal" })
+    .focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("main")).toBeFocused();
+  await menu.focus();
+  await page.keyboard.press("Enter");
+  await expect(menu).toHaveAttribute("aria-expanded", "true");
+  await navigation.getByRole("link", { name: "Visão geral" }).focus();
+  await page.keyboard.press("Escape");
+  await expect(menu).toBeFocused();
+  await expect(menu).toHaveAttribute("aria-expanded", "false");
+  async function goTo(name: string) {
+    if (await menu.isVisible()) await menu.click();
+    await navigation.getByRole("link", { name, exact: true }).click();
+    if (await menu.isVisible())
+      await expect(menu).toHaveAttribute("aria-expanded", "false");
+  }
+  await goTo("Minha conta");
   await page
     .getByRole("group")
     .filter({ hasText: "Configurar autenticador" })
@@ -90,10 +112,10 @@ test("cadastro, MFA e jornada comercial persistida pelo navegador", async ({
   await expect(
     page.getByText("Segundo fator confirmado nesta sessão."),
   ).toBeVisible();
-  await page.getByRole("link", { name: "Organizações", exact: true }).click();
+  await goTo("Organizações");
   await page.getByLabel("Nome da organização").fill("Climatização de teste");
   await page.getByRole("button", { name: "Criar organização" }).click();
-  await page.getByRole("link", { name: "Clientes", exact: true }).click();
+  await goTo("Clientes");
   await page.getByRole("button", { name: "Novo cliente" }).click();
   await page.getByLabel("Nome do cliente").fill("Oficina de teste");
   await page.getByRole("button", { name: "Salvar", exact: true }).click();
@@ -101,7 +123,7 @@ test("cadastro, MFA e jornada comercial persistida pelo navegador", async ({
     page.getByText("Oficina de teste", { exact: true }),
   ).toBeVisible();
 
-  await page.getByRole("link", { name: "Propostas", exact: true }).click();
+  await goTo("Propostas");
   await page.getByRole("button", { name: "Nova proposta" }).click();
   await page.getByLabel("Título").fill("Instalação");
   await page
@@ -111,9 +133,7 @@ test("cadastro, MFA e jornada comercial persistida pelo navegador", async ({
   await page.getByLabel("Data de envio").fill("2026-11-18");
   await page.getByRole("button", { name: "Salvar", exact: true }).click();
   await expect(page.getByText("Instalação", { exact: true })).toBeVisible();
-  await page
-    .getByRole("link", { name: "Acompanhamentos", exact: true })
-    .click();
+  await goTo("Acompanhamentos");
   await page.getByRole("button", { name: "Novo acompanhamento" }).click();
   await page
     .locator("select[name=proposalId]")
@@ -128,19 +148,59 @@ test("cadastro, MFA e jornada comercial persistida pelo navegador", async ({
   await expect(
     page.getByText("Ligar para confirmar", { exact: true }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Editar", exact: true }).click();
+  const editFollowup = page.getByRole("button", {
+    name: "Editar Ligar para confirmar",
+    exact: true,
+  });
+  await editFollowup.click();
+  await expect(
+    page.getByRole("heading", { name: "Editar Ligar para confirmar" }),
+  ).toBeFocused();
+  await page.getByRole("button", { name: "Cancelar edição" }).click();
+  await expect(editFollowup).toBeFocused();
+  await editFollowup.click();
   await page.getByLabel("Situação").selectOption("yes");
   await page.getByLabel("Resultado do contato").fill("Cliente aceitou");
   await page.getByRole("button", { name: "Salvar", exact: true }).click();
   await expect(
     page.getByText("Cliente aceitou", { exact: true }),
   ).toBeVisible();
-  await page.getByRole("link", { name: "Propostas", exact: true }).click();
-  await page.getByRole("button", { name: "Editar", exact: true }).click();
+  await goTo("Propostas");
+  await page
+    .getByRole("button", { name: "Editar Instalação", exact: true })
+    .click();
   await page.locator("select[name=status]").selectOption("won");
   await page.getByRole("button", { name: "Salvar", exact: true }).click();
   await expect(page.getByText(/Ganha ·/)).toBeVisible();
-  await page.getByRole("link", { name: "Relatórios", exact: true }).click();
+  const exclude = page.getByRole("button", {
+    name: "Excluir Instalação",
+    exact: true,
+  });
+  await exclude.click();
+  const cancel = page.getByRole("button", { name: "Cancelar", exact: true });
+  await expect(cancel).toBeFocused();
+  await cancel.click();
+  await expect(exclude).toBeFocused();
+  const longName = "W".repeat(160);
+  await page
+    .getByRole("button", { name: "Editar Instalação", exact: true })
+    .click();
+  await page.getByLabel("Título").fill(longName);
+  await page.getByRole("button", { name: "Salvar", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: longName, exact: true }),
+  ).toBeVisible();
+  for (const width of [320, 390, 640, 768, 1440]) {
+    await page.setViewportSize({ width, height: 844 });
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
+      .toBeLessThanOrEqual(width);
+    const height = await page
+      .getByRole("button", { name: "Nova proposta" })
+      .evaluate((el) => el.getBoundingClientRect().height);
+    expect(height).toBeGreaterThanOrEqual(44);
+  }
+  await goTo("Relatórios");
   await expect(page.getByText(/1\.234,56/)).toBeVisible();
   await page.getByLabel("De", { exact: true }).fill("2026-11-19");
   await page.getByRole("button", { name: "Aplicar período de envio" }).click();

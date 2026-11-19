@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   BrowserRouter,
@@ -95,20 +95,25 @@ function Organizations({
               <input name="userId" maxLength={128} required />
             </label>
           </ActionForm>
-          <h2>Encerrar organização</h2>
-          <ActionForm
-            label="Encerrar organização vazia"
-            action={(fields) => request(orgPath(org.id), "DELETE", fields)}
-            onSaved={() => {
-              refresh();
-              setNotice("Organização encerrada.");
-            }}
-          >
-            <label>
-              Confirme o nome da organização
-              <input name="confirmName" required maxLength={120} />
-            </label>
-          </ActionForm>
+          <section className="account-warning">
+            <h2>Encerrar organização</h2>
+            <p>
+              O encerramento remove esta organização. Ela precisa estar vazia.
+            </p>
+            <ActionForm
+              label="Encerrar organização vazia"
+              action={(fields) => request(orgPath(org.id), "DELETE", fields)}
+              onSaved={() => {
+                refresh();
+                setNotice("Organização encerrada.");
+              }}
+            >
+              <label>
+                Confirme o nome da organização
+                <input name="confirmName" required maxLength={120} />
+              </label>
+            </ActionForm>
+          </section>
         </>
       )}
       {notice && <Notice>{notice}</Notice>}
@@ -125,19 +130,40 @@ function Workspace({
 }) {
   const orgs = useData<Org[]>("/organizations");
   const [selection, setSelection] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuButton = useRef<HTMLButtonElement>(null);
+  const main = useRef<HTMLElement>(null);
   const [logoutError, setLogoutError] = useState("");
   const org = orgs.data?.find((row) => row.id === selection) ?? orgs.data?.[0];
   const navigate = useNavigate();
   const { page = "painel" } = useParams();
   const path = org ? orgPath(org.id) : "";
+  const previousPage = useRef(page);
+  useEffect(() => {
+    if (previousPage.current !== page) main.current?.focus();
+    previousPage.current = page;
+  }, [page]);
   return (
     <>
-      <header>
+      <a className="skip-link" href="#conteudo">
+        Ir para o conteúdo principal
+      </a>
+      <header className="workspace-header">
         <Link className="brand" to="/app">
           Retivvo
         </Link>
+        <button
+          ref={menuButton}
+          type="button"
+          className="menu-toggle"
+          aria-expanded={menuOpen}
+          aria-controls="workspace-navigation"
+          onClick={() => setMenuOpen(!menuOpen)}
+        >
+          Menu
+        </button>
         {!!orgs.data?.length && (
-          <label>
+          <label className="organization-switcher">
             Organização
             <select
               value={org?.id ?? ""}
@@ -165,14 +191,33 @@ function Workspace({
           Sair
         </button>
       </header>
-      <nav aria-label="Principal">
+      <nav
+        id="workspace-navigation"
+        className="workspace-navigation"
+        aria-label="Principal"
+        data-expanded={menuOpen}
+        onKeyDown={(event) => {
+          if (event.key === "Escape" && menuOpen) {
+            setMenuOpen(false);
+            menuButton.current?.focus();
+          }
+        }}
+      >
         {pages.map(([id, label]) => (
-          <NavLink key={id} to={"/app/" + id}>
+          <NavLink
+            key={id}
+            to={"/app/" + id}
+            end
+            onClick={() => {
+              setMenuOpen(false);
+              if (id === page) main.current?.focus();
+            }}
+          >
             {label}
           </NavLink>
         ))}
       </nav>
-      <main key={org?.id ?? "empty"}>
+      <main ref={main} id="conteudo" tabIndex={-1} key={org?.id ?? "empty"}>
         {logoutError && <p role="alert">{logoutError}</p>}
         {orgs.error && (
           <p role="alert">

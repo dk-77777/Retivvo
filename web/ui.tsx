@@ -69,10 +69,12 @@ export function ActionForm({
     }
   }
   return (
-    <form onSubmit={submit}>
+    <form onSubmit={submit} aria-busy={busy}>
       <fieldset disabled={busy}>
         {children}
-        <button type="submit">{busy ? "Aguarde…" : label}</button>
+        <button type="submit" className="primary">
+          {busy ? "Aguarde…" : label}
+        </button>
       </fieldset>
       {message && <p role="alert">{message}</p>}
     </form>

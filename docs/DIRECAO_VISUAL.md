@@ -26,3 +26,18 @@ A tarefa de referência é encontrar um orçamento enviado e decidir o próximo 
 No Chromium, as rotas públicas de início, entrada, cadastro e recuperação foram medidas em 320, 390, 768 e 1440 px. Nas 16 combinações, a largura do documento coube no viewport. O menor link ou botão visível mediu 24 px de altura no início e na entrada e 33 px no cadastro e na recuperação. Aumentar as áreas de toque é uma prioridade da próxima subfase. A medição abrangeu as páginas públicas em estado inicial. As listas com textos extensos, o zoom e as tecnologias assistivas requerem testes próprios.
 
 A referência web-design-guidelines do catálogo vercel-labs/agent-skills orientou a revisão de foco, semântica, formulários e navegação. Foi consultada como texto na fonte, sem instalar scripts, fontes ou componentes de terceiros.
+
+## Validação da Fase 4B
+
+O Chromium verificou quatro rotas públicas em 320, 390, 768 e 1440 px com preferência por movimento reduzido. Nas 16 combinações, a página coube na largura disponível e o menor alvo de ação mediu 44 px no menor eixo. A suíte autenticada confirmou a abertura do menu por teclado, retorno do foco por Escape, atalho para o conteúdo, foco ao abrir a edição e retorno ao cancelar uma edição ou exclusão. Uma proposta com título de 160 caracteres coube em 320, 390, 640, 768 e 1440 px.
+
+| Par de cores medido | Contraste |
+| --- | ---: |
+| Texto sobre fundo | 14,92:1 |
+| Link sobre fundo | 7,93:1 |
+| Texto do botão primário | 8,42:1 |
+| Texto de erro sobre fundo | 7,85:1 |
+| Borda de controle sobre superfície | 3,83:1 |
+| Indicador de foco sobre fundo | 5,43:1 |
+
+As medições de largura representam condições de reflow. Testes manuais de zoom, leitores de tela e dispositivos físicos seguem pendentes.

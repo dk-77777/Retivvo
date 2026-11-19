@@ -1,4 +1,5 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Link } from "react-router-dom";
 import { request, errorMessage, ApiError } from "./api.ts";
 import { ActionForm, Notice, Pager, useData } from "./ui.tsx";
 
@@ -39,6 +40,7 @@ function Listing<T extends Entity>({
   title,
   label,
   describe,
+  nameOf,
   fields,
   filters,
   query = "",
@@ -47,19 +49,35 @@ function Listing<T extends Entity>({
   title: string;
   label: string;
   describe: (item: T) => ReactNode;
+  nameOf: (item: T) => string;
   fields: (item?: T) => ReactNode;
   filters?: ReactNode;
   query?: string;
 }) {
   const [offset, setOffset] = useState(0);
   const [edit, setEdit] = useState<T | null>();
+  const editHeading = useRef<HTMLHeadingElement>(null);
+  const editTrigger = useRef<HTMLButtonElement>(null);
+  const deleteTrigger = useRef<HTMLButtonElement>(null);
+  const cancelDeletion = useRef<HTMLButtonElement>(null);
+  const createTrigger = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (edit !== undefined) editHeading.current?.focus();
+  }, [edit]);
   const [notice, setNotice] = useState("");
   const [confirm, setConfirm] = useState<string>();
   const [deleting, setDeleting] = useState(false);
   const list = useData<T[]>(path + "?offset=" + offset + query);
+  useEffect(() => {
+    if (confirm) cancelDeletion.current?.focus();
+  }, [confirm]);
+  function closeEditor() {
+    setEdit(undefined);
+    editTrigger.current?.focus();
+  }
   function saved() {
     list.refresh();
-    setEdit(undefined);
+    closeEditor();
     setNotice("Registro salvo.");
   }
   async function remove(id: string) {
@@ -69,6 +87,7 @@ function Listing<T extends Entity>({
       setConfirm(undefined);
       if (list.data?.length === 1 && offset) setOffset(offset - 50);
       list.refresh();
+      createTrigger.current?.focus();
       setNotice("Registro excluído.");
     } catch (error) {
       setNotice(errorMessage(error));
@@ -78,18 +97,25 @@ function Listing<T extends Entity>({
   }
   return (
     <section>
-      <h1>{title}</h1>
-      <button
-        onClick={() => {
-          setEdit(null);
-          setNotice("");
-        }}
-      >
-        {label}
-      </button>
+      <div className="section-heading">
+        <h1>{title}</h1>
+        <button
+          ref={createTrigger}
+          className="primary"
+          onClick={(event) => {
+            editTrigger.current = event.currentTarget;
+            setEdit(null);
+            setNotice("");
+          }}
+        >
+          {label}
+        </button>
+      </div>
       {edit !== undefined && (
         <article>
-          <h2>{edit ? "Editar registro" : label}</h2>
+          <h2 ref={editHeading} tabIndex={-1}>
+            {edit ? "Editar " + nameOf(edit) : label}
+          </h2>
           <ActionForm
             key={edit?.id ?? "new"}
             label="Salvar"
@@ -116,7 +142,7 @@ function Listing<T extends Entity>({
           >
             {fields(edit ?? undefined)}
           </ActionForm>
-          <button type="button" onClick={() => setEdit(undefined)}>
+          <button type="button" onClick={closeEditor}>
             Cancelar edição
           </button>
         </article>
@@ -136,10 +162,12 @@ function Listing<T extends Entity>({
         <ul className="records">
           {list.data.map((item) => (
             <li key={item.id}>
-              {describe(item)}
-              <div className="row">
+              <div className="record-details">{describe(item)}</div>
+              <div className="row record-actions">
                 <button
-                  onClick={() => {
+                  aria-label={"Editar " + nameOf(item)}
+                  onClick={(event) => {
+                    editTrigger.current = event.currentTarget;
                     setEdit(item);
                     setNotice("");
                   }}
@@ -147,7 +175,9 @@ function Listing<T extends Entity>({
                   Editar
                 </button>
                 <button
-                  onClick={() => {
+                  aria-label={"Excluir " + nameOf(item)}
+                  onClick={(event) => {
+                    deleteTrigger.current = event.currentTarget;
                     setConfirm(item.id);
                     setNotice("");
                   }}
@@ -156,8 +186,8 @@ function Listing<T extends Entity>({
                 </button>
               </div>
               {confirm === item.id && (
-                <div className="row">
-                  <span>Confirma a exclusão?</span>
+                <div className="row confirmation">
+                  <span role="status">Excluir {nameOf(item)}?</span>
                   <button
                     disabled={deleting}
                     onClick={() => void remove(item.id)}
@@ -166,7 +196,11 @@ function Listing<T extends Entity>({
                   </button>
                   <button
                     disabled={deleting}
-                    onClick={() => setConfirm(undefined)}
+                    ref={cancelDeletion}
+                    onClick={() => {
+                      setConfirm(undefined);
+                      deleteTrigger.current?.focus();
+                    }}
                   >
                     Cancelar
                   </button>
@@ -247,7 +281,8 @@ export function Clients({ path }: { path: string }) {
       path={path + "/clients"}
       title="Clientes"
       label="Novo cliente"
-      describe={(item) => <strong>{item.name}</strong>}
+      nameOf={(item) => item.name}
+      describe={(item) => <h2>{item.name}</h2>}
       fields={(item) => (
         <label>
           Nome do cliente
@@ -285,11 +320,12 @@ export function Proposals({ path }: { path: string }) {
           </select>
         </label>
       }
+      nameOf={(item) => item.title}
       describe={(item) => (
         <>
-          <strong>{item.title}</strong>
+          <h2>{item.title}</h2>
           <p>{item.clientName}</p>
-          <p>
+          <p className="record-meta">
             {statuses[item.status]} · {money(item.amountCents)} · Enviada em{" "}
             {date(item.sentOn)}
           </p>
@@ -365,11 +401,12 @@ export function Followups({ path }: { path: string }) {
       path={path + "/followups"}
       title="Acompanhamentos"
       label="Novo acompanhamento"
+      nameOf={(item) => item.action}
       describe={(item) => (
         <>
-          <strong>{item.action}</strong>
+          <h2>{item.action}</h2>
           <p>{item.proposalTitle}</p>
-          <p>
+          <p className="record-meta">
             {item.done ? "Concluído" : "Pendente"} · {date(item.dueOn)}
           </p>
           {item.outcome && <p>{item.outcome}</p>}
@@ -484,16 +521,24 @@ export function Reports({
               return (
                 <div key={key}>
                   <dt>Propostas · {label}</dt>
-                  <dd>{total?.count ?? 0}</dd>
+                  <dd>
+                    {total?.count ?? 0}{" "}
+                    <span>{total?.count === 1 ? "proposta" : "propostas"}</span>
+                  </dd>
                   <dd>{money(total?.amountCents ?? "0")}</dd>
                 </div>
               );
             })}
           </dl>
-          <p>
-            Acompanhamentos pendentes em propostas abertas{" "}
-            <strong>{report.data.pending}</strong>
-          </p>
+          <div className="pending-summary">
+            <p>
+              Acompanhamentos pendentes em propostas abertas{" "}
+              <strong>{report.data.pending}</strong>
+            </p>
+            {dashboard && (
+              <Link to="/app/acompanhamentos">Ver acompanhamentos</Link>
+            )}
+          </div>
           {report.data.statuses.length === 0 && (
             <Notice>Nenhuma proposta no período.</Notice>
           )}
