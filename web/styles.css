@@ -1,0 +1,135 @@
+:root {
+  --text: #192330;
+  --canvas: #f7f8fa;
+  --surface: white;
+  --divider: #dce2e8;
+  --link: #194f84;
+  --control-border: #7a8390;
+  --hover: #e9eef4;
+  --focus: #146aa6;
+  --error: #981b24;
+  font-family: system-ui, sans-serif;
+  color: var(--text);
+  background: var(--canvas);
+  line-height: 1.5;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+main {
+  max-width: 70rem;
+  margin: auto;
+  padding: clamp(1rem, 4vw, 3rem);
+}
+main.public {
+  max-width: 42rem;
+}
+header,
+nav {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 1rem max(1rem, calc((100vw - 64rem) / 2));
+  background: var(--surface);
+  border-bottom: 1px solid var(--divider);
+}
+.brand {
+  font-size: 1.5rem;
+  font-weight: 750;
+  color: inherit;
+  text-decoration: none;
+}
+nav a {
+  padding: 0.4rem;
+}
+nav a.active {
+  font-weight: 700;
+  text-decoration-thickness: 3px;
+}
+a {
+  color: var(--link);
+}
+h1 {
+  line-height: 1.15;
+}
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+  border: 1px solid var(--control-border);
+  border-radius: 0.3rem;
+  padding: 0.5rem;
+  background: var(--surface);
+}
+button {
+  cursor: pointer;
+}
+button:not(:disabled):hover {
+  background: var(--hover);
+}
+button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+label {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0.5rem 0;
+}
+textarea {
+  resize: vertical;
+  min-height: 5rem;
+}
+fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+form {
+  margin: 1rem 0;
+  max-width: 37rem;
+}
+.row {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.records,
+.metrics {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+.records li,
+.metrics div,
+article {
+  padding: 1rem;
+  background: var(--surface);
+  border: 1px solid var(--divider);
+  border-radius: 0.45rem;
+  overflow-wrap: anywhere;
+}
+.metrics {
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+}
+.metrics dd {
+  margin: 0.25rem 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+[role="alert"] {
+  color: var(--error);
+}

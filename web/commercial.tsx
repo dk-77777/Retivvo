@@ -1,0 +1,504 @@
+import { useState, type ReactNode } from "react";
+import { request, errorMessage, ApiError } from "./api.ts";
+import { ActionForm, Notice, Pager, useData } from "./ui.tsx";
+
+type Entity = { id: string };
+type Client = Entity & { name: string };
+type Proposal = Entity & {
+  clientId: string;
+  clientName: string;
+  title: string;
+  amountCents: string;
+  sentOn: string;
+  status: keyof typeof statuses;
+  notes: string;
+};
+type Followup = Entity & {
+  proposalId: string;
+  proposalTitle: string;
+  action: string;
+  dueOn: string;
+  done: boolean;
+  outcome: string;
+};
+const statuses = { open: "Em aberto", won: "Ganha", lost: "Perdida" };
+const brl = new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+});
+const date = (iso: string) => iso.split("-").reverse().join("/");
+function money(cents: string) {
+  const padded = cents.padStart(3, "0");
+  return brl
+    .format(BigInt(padded.slice(0, -2)))
+    .replace(/,00$/, "," + padded.slice(-2));
+}
+
+function Listing<T extends Entity>({
+  path,
+  title,
+  label,
+  describe,
+  fields,
+  filters,
+  query = "",
+}: {
+  path: string;
+  title: string;
+  label: string;
+  describe: (item: T) => ReactNode;
+  fields: (item?: T) => ReactNode;
+  filters?: ReactNode;
+  query?: string;
+}) {
+  const [offset, setOffset] = useState(0);
+  const [edit, setEdit] = useState<T | null>();
+  const [notice, setNotice] = useState("");
+  const [confirm, setConfirm] = useState<string>();
+  const [deleting, setDeleting] = useState(false);
+  const list = useData<T[]>(path + "?offset=" + offset + query);
+  function saved() {
+    list.refresh();
+    setEdit(undefined);
+    setNotice("Registro salvo.");
+  }
+  async function remove(id: string) {
+    setDeleting(true);
+    try {
+      await request(path + "/" + id, "DELETE");
+      setConfirm(undefined);
+      if (list.data?.length === 1 && offset) setOffset(offset - 50);
+      list.refresh();
+      setNotice("Registro excluído.");
+    } catch (error) {
+      setNotice(errorMessage(error));
+    } finally {
+      setDeleting(false);
+    }
+  }
+  return (
+    <section>
+      <h1>{title}</h1>
+      <button
+        onClick={() => {
+          setEdit(null);
+          setNotice("");
+        }}
+      >
+        {label}
+      </button>
+      {edit !== undefined && (
+        <article>
+          <h2>{edit ? "Editar registro" : label}</h2>
+          <ActionForm
+            key={edit?.id ?? "new"}
+            label="Salvar"
+            action={(data) =>
+              request(
+                path + (edit ? "/" + edit.id : ""),
+                edit ? "PATCH" : "POST",
+                "amountCents" in data
+                  ? {
+                      ...data,
+                      amountCents: parseAmount(String(data.amountCents)),
+                    }
+                  : "completed" in data
+                    ? Object.fromEntries(
+                        Object.entries({
+                          ...data,
+                          done: data.completed === "yes",
+                        }).filter(([key]) => key !== "completed"),
+                      )
+                    : data,
+              )
+            }
+            onSaved={saved}
+          >
+            {fields(edit ?? undefined)}
+          </ActionForm>
+          <button type="button" onClick={() => setEdit(undefined)}>
+            Cancelar edição
+          </button>
+        </article>
+      )}
+      {filters}
+      {notice && <Notice>{notice}</Notice>}
+      {list.error && (
+        <p role="alert">
+          {list.error} <button onClick={list.refresh}>Tentar novamente</button>
+        </p>
+      )}
+      {!list.data && !list.error && <Notice>Carregando…</Notice>}
+      {list.data?.length === 0 && (
+        <Notice>Nenhum registro nesta página.</Notice>
+      )}
+      {!!list.data?.length && (
+        <ul className="records">
+          {list.data.map((item) => (
+            <li key={item.id}>
+              {describe(item)}
+              <div className="row">
+                <button
+                  onClick={() => {
+                    setEdit(item);
+                    setNotice("");
+                  }}
+                >
+                  Editar
+                </button>
+                <button
+                  onClick={() => {
+                    setConfirm(item.id);
+                    setNotice("");
+                  }}
+                >
+                  Excluir
+                </button>
+              </div>
+              {confirm === item.id && (
+                <div className="row">
+                  <span>Confirma a exclusão?</span>
+                  <button
+                    disabled={deleting}
+                    onClick={() => void remove(item.id)}
+                  >
+                    Confirmar exclusão
+                  </button>
+                  <button
+                    disabled={deleting}
+                    onClick={() => setConfirm(undefined)}
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {(offset > 0 || (list.data?.length ?? 0) >= 50) && (
+        <Pager
+          offset={offset}
+          length={list.data?.length ?? 0}
+          change={setOffset}
+        />
+      )}
+    </section>
+  );
+}
+
+function parseAmount(value: string) {
+  const [whole, fraction = ""] = value.split(/[,.]/);
+  return Number(whole) * 100 + Number(fraction.padEnd(2, "0"));
+}
+
+function Related<T extends Entity>({
+  path,
+  label,
+  name,
+  defaultId,
+  display,
+}: {
+  path: string;
+  label: string;
+  name: string;
+  defaultId?: string;
+  display: (value: T) => string;
+}) {
+  const [offset, setOffset] = useState(0);
+  const [selected, setSelected] = useState(defaultId ?? "");
+  const page = useData<T[]>(path + "?offset=" + offset);
+  return (
+    <div>
+      <label>
+        {label}
+        <select
+          name={name}
+          value={selected}
+          onChange={(e) => setSelected(e.target.value)}
+          required
+        >
+          <option value="">Selecione</option>
+          {selected && !page.data?.some((item) => item.id === selected) && (
+            <option value={selected}>Registro selecionado</option>
+          )}
+          {page.data?.map((item) => (
+            <option key={item.id} value={item.id}>
+              {display(item)}
+            </option>
+          ))}
+        </select>
+      </label>
+      {page.error && <p role="alert">{page.error}</p>}
+      {(offset > 0 || (page.data?.length ?? 0) >= 50) && (
+        <Pager
+          offset={offset}
+          length={page.data?.length ?? 0}
+          change={setOffset}
+        />
+      )}
+    </div>
+  );
+}
+
+export function Clients({ path }: { path: string }) {
+  return (
+    <Listing<Client>
+      path={path + "/clients"}
+      title="Clientes"
+      label="Novo cliente"
+      describe={(item) => <strong>{item.name}</strong>}
+      fields={(item) => (
+        <label>
+          Nome do cliente
+          <input
+            required
+            name="name"
+            maxLength={160}
+            defaultValue={item?.name}
+          />
+        </label>
+      )}
+    />
+  );
+}
+
+export function Proposals({ path }: { path: string }) {
+  const [filter, setFilter] = useState("");
+  return (
+    <Listing<Proposal>
+      key={filter}
+      path={path + "/proposals"}
+      title="Propostas"
+      label="Nova proposta"
+      query={filter ? "&status=" + filter : ""}
+      filters={
+        <label>
+          Filtrar situação
+          <select value={filter} onChange={(e) => setFilter(e.target.value)}>
+            <option value="">Todas</option>
+            {Object.entries(statuses).map(([id, text]) => (
+              <option key={id} value={id}>
+                {text}
+              </option>
+            ))}
+          </select>
+        </label>
+      }
+      describe={(item) => (
+        <>
+          <strong>{item.title}</strong>
+          <p>{item.clientName}</p>
+          <p>
+            {statuses[item.status]} · {money(item.amountCents)} · Enviada em{" "}
+            {date(item.sentOn)}
+          </p>
+          {item.notes && <p>{item.notes}</p>}
+        </>
+      )}
+      fields={(item) => (
+        <>
+          <label>
+            Título
+            <input
+              name="title"
+              defaultValue={item?.title}
+              maxLength={160}
+              required
+            />
+          </label>
+          <Related<Client>
+            path={path + "/clients"}
+            label="Cliente"
+            name="clientId"
+            defaultId={item?.clientId}
+            display={(row) => row.name}
+          />
+          <label>
+            Valor em reais
+            <input
+              name="amountCents"
+              inputMode="decimal"
+              pattern="[0-9]{1,9}([.,][0-9]{1,2})?"
+              defaultValue={
+                item ? String(Number(item.amountCents) / 100) : undefined
+              }
+              required
+            />
+          </label>
+          <label>
+            Data de envio
+            <input
+              name="sentOn"
+              type="date"
+              defaultValue={item?.sentOn}
+              required
+            />
+          </label>
+          <label>
+            Situação
+            <select name="status" defaultValue={item?.status ?? "open"}>
+              {Object.entries(statuses).map(([id, text]) => (
+                <option key={id} value={id}>
+                  {text}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Observações
+            <textarea
+              name="notes"
+              maxLength={2000}
+              defaultValue={item?.notes}
+            />
+          </label>
+        </>
+      )}
+    />
+  );
+}
+
+export function Followups({ path }: { path: string }) {
+  return (
+    <Listing<Followup>
+      path={path + "/followups"}
+      title="Acompanhamentos"
+      label="Novo acompanhamento"
+      describe={(item) => (
+        <>
+          <strong>{item.action}</strong>
+          <p>{item.proposalTitle}</p>
+          <p>
+            {item.done ? "Concluído" : "Pendente"} · {date(item.dueOn)}
+          </p>
+          {item.outcome && <p>{item.outcome}</p>}
+        </>
+      )}
+      fields={(item) => (
+        <>
+          {!item && (
+            <Related<Proposal>
+              path={path + "/proposals"}
+              label="Proposta"
+              name="proposalId"
+              display={(row) => row.title}
+            />
+          )}
+          <label>
+            Próxima ação
+            <input
+              name="action"
+              required
+              defaultValue={item?.action}
+              maxLength={200}
+            />
+          </label>
+          <label>
+            Prazo
+            <input
+              name="dueOn"
+              type="date"
+              required
+              defaultValue={item?.dueOn}
+            />
+          </label>
+          <label>
+            Situação
+            <select name="completed" defaultValue={item?.done ? "yes" : "no"}>
+              <option value="no">Pendente</option>
+              <option value="yes">Concluído</option>
+            </select>
+          </label>
+          <label>
+            Resultado do contato (obrigatório ao concluir)
+            <textarea
+              name="outcome"
+              defaultValue={item?.outcome}
+              maxLength={2000}
+            />
+          </label>
+        </>
+      )}
+    />
+  );
+}
+
+type Summary = {
+  statuses: {
+    status: keyof typeof statuses;
+    count: number;
+    amountCents: string;
+  }[];
+  pending: number;
+};
+export function Reports({
+  path,
+  dashboard = false,
+}: {
+  path: string;
+  dashboard?: boolean;
+}) {
+  const [query, setQuery] = useState("");
+  const report = useData<Summary>(path + "/reports" + query);
+  return (
+    <section>
+      <h1>{dashboard ? "Visão geral" : "Relatórios"}</h1>
+      {!dashboard && (
+        <ActionForm
+          label="Aplicar período de envio"
+          action={async (fields) => {
+            const from = String(fields.from ?? ""),
+              to = String(fields.to ?? "");
+            if (from && to && from > to)
+              throw new ApiError(400, "A data inicial deve anteceder a final.");
+            const params = new URLSearchParams();
+            if (from) params.set("from", from);
+            if (to) params.set("to", to);
+            setQuery("?" + params);
+          }}
+        >
+          <div className="row">
+            <label>
+              De
+              <input type="date" name="from" />
+            </label>
+            <label>
+              Até
+              <input type="date" name="to" />
+            </label>
+          </div>
+        </ActionForm>
+      )}
+      {report.error && <p role="alert">{report.error}</p>}
+      {!report.error && !report.data && (
+        <Notice>Calculando indicadores…</Notice>
+      )}
+      {report.data && (
+        <>
+          <dl className="metrics">
+            {Object.entries(statuses).map(([key, label]) => {
+              const total = report.data?.statuses.find(
+                (row) => row.status === key,
+              );
+              return (
+                <div key={key}>
+                  <dt>Propostas · {label}</dt>
+                  <dd>{total?.count ?? 0}</dd>
+                  <dd>{money(total?.amountCents ?? "0")}</dd>
+                </div>
+              );
+            })}
+          </dl>
+          <p>
+            Acompanhamentos pendentes em propostas abertas{" "}
+            <strong>{report.data.pending}</strong>
+          </p>
+          {report.data.statuses.length === 0 && (
+            <Notice>Nenhuma proposta no período.</Notice>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
