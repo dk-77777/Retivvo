@@ -3,7 +3,11 @@ import { buildApp } from "./app.ts";
 import { getResources } from "./config.ts";
 
 const resources = getResources(process.env);
-const app = await buildApp(resources);
+const app = await buildApp({
+  ...resources,
+  logOperations: process.env.NODE_ENV === "production",
+  trustLoopbackProxy: process.env.TRUST_LOOPBACK_PROXY === "1",
+});
 await registerWeb(app);
 app.addHook("onClose", async () => {
   await Promise.all([resources.authDb.end(), resources.appDb.end()]);

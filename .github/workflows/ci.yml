@@ -1,0 +1,44 @@
+name: Verificação
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run lint && npm run typecheck && npm run format:check && npm run build
+      - name: Preparar serviços locais
+        run: |
+          umask 077
+          node -e 'console.log("POSTGRES_PASSWORD="+require("node:crypto").randomBytes(32).toString("hex"))' > .env
+          docker compose up -d --wait --wait-timeout 90
+          npm run db:prepare
+      - run: npm test
+      - run: npx --no-install playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - run: bash tests/ensaio-restauracao.sh
+      - run: npm audit --audit-level=high
+      - run: npm run secrets:check
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: retivvo-web-${{ github.sha }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
+      - name: Encerrar serviços de CI
+        if: always()
+        run: test ! -f .env || docker compose down --volumes

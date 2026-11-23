@@ -3,23 +3,42 @@
 set -euo pipefail
 umask 077
 scratch=$(mktemp -d)
+export GNUPGHOME="$scratch/gnupg"
+mkdir -m 700 "$GNUPGHOME"
 suffix=$(node -p "require('node:crypto').randomBytes(8).toString('hex')")
 source_db=retivvo_dr_src_${suffix}
-target_db=retivvo_dr_dst_${suffix}
+target_container=retivvo-dr-${suffix}
+source_created=false
+target_created=false
 pg=(docker compose exec -T db)
-created=()
 cleanup() {
-  for db in "${created[@]}"; do
-    "${pg[@]}" dropdb -U retivvo_bootstrap "$db"
-  done
-  rm -f "$scratch/archive" "$scratch/archive.sha256"
-  rmdir "$scratch"
+  if "$target_created"; then docker rm -f -v "$target_container" >/dev/null || true; fi
+  if "$source_created"; then "${pg[@]}" dropdb -U retivvo_bootstrap "$source_db" || true; fi
+  gpgconf --kill all
+  rm -rf -- "$scratch"
 }
 trap cleanup EXIT
-for db in "$source_db" "$target_db"; do
-  "${pg[@]}" createdb -U retivvo_bootstrap "$db"
-  created+=("$db")
+"${pg[@]}" createdb -U retivvo_bootstrap "$source_db"
+source_created=true
+image=$(docker inspect --format '{{.Config.Image}}' "$(docker compose ps -q db)")
+POSTGRES_PASSWORD=$(node -p "require('node:crypto').randomBytes(32).toString('hex')") \
+  docker run --detach --network none --name "$target_container" -e POSTGRES_PASSWORD \
+  -e POSTGRES_USER=retivvo_bootstrap -e POSTGRES_DB=restore "$image" >/dev/null
+target_created=true
+target=(docker exec -i "$target_container")
+ready=false
+for attempt in {1..45}; do
+  if "${target[@]}" pg_isready -h 127.0.0.1 -d restore -U retivvo_bootstrap >/dev/null; then
+    ready=true
+    break
+  fi
+  sleep 1
 done
+"$ready"
+"${target[@]}" psql -X -v ON_ERROR_STOP=1 -U retivvo_bootstrap -d restore <<'SQL'
+CREATE ROLE retivvo_auth NOLOGIN;
+CREATE ROLE retivvo_app NOLOGIN;
+SQL
 node --input-type=module - "$source_db" <<'JS'
 import {localConfig, prepare} from './scripts/prepare.mjs';
 await prepare(process.argv[2], await localConfig());
@@ -31,11 +50,17 @@ INSERT INTO crm.clients(org_id,name) SELECT id,'Cliente sintético' FROM crm.org
 INSERT INTO crm.proposals(org_id,client_id,title,amount_cents,sent_on)
  SELECT org_id,id,'Ensaio',123456,current_date FROM crm.clients;
 SQL
-"${pg[@]}" pg_dump -Fc -U retivvo_bootstrap "$source_db" > "$scratch/archive"
-sha256sum "$scratch/archive" > "$scratch/archive.sha256"
-sha256sum --status -c "$scratch/archive.sha256"
-time "${pg[@]}" pg_restore --exit-on-error --single-transaction -U retivvo_bootstrap -d "$target_db" < "$scratch/archive"
-"${pg[@]}" psql -X -v ON_ERROR_STOP=1 -U retivvo_bootstrap -d "$target_db" <<'SQL'
+gpg --batch --passphrase '' --quick-generate-key 'Retivvo DR Test' default default 1d
+fingerprint=$(gpg --batch --with-colons --list-keys | awk -F: '$1 == "fpr" && !found++ {print $10}')
+bash scripts/backup.sh "$scratch/archive.gpg" "$fingerprint" "${pg[@]}" pg_dump -Fc -U retivvo_bootstrap "$source_db"
+head -c 64 "$scratch/archive.gpg" > "$scratch/corrupted.gpg"
+if bash scripts/restore.sh "$scratch/corrupted.gpg" touch "$scratch/restore-invoked"; then
+  echo 'Arquivo incompleto aceito' >&2
+  exit 1
+fi
+test ! -e "$scratch/restore-invoked"
+time bash scripts/restore.sh "$scratch/archive.gpg" "${target[@]}" pg_restore -U retivvo_bootstrap -d restore
+"${target[@]}" psql -X -v ON_ERROR_STOP=1 -U retivvo_bootstrap -d restore <<'SQL'
 BEGIN;
 SET LOCAL ROLE retivvo_app;
 DO $$
@@ -49,4 +74,4 @@ BEGIN
 END $$;
 ROLLBACK;
 SQL
-printf 'Restauração e isolamento verificados. Arquivo de %s bytes.\n' "$(wc -c < "$scratch/archive")"
+printf 'Restauração e isolamento verificados. Arquivo criptografado de %s bytes.\n' "$(wc -c < "$scratch/archive.gpg")"

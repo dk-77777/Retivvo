@@ -14,6 +14,8 @@ type Options = {
   authDb: Pool;
   appDb: Pool;
   mail: SendMail;
+  logOperations?: boolean;
+  trustLoopbackProxy?: boolean;
 };
 export async function buildApp({
   origin,
@@ -21,6 +23,8 @@ export async function buildApp({
   authDb,
   appDb,
   mail,
+  logOperations = false,
+  trustLoopbackProxy = false,
 }: Options) {
   const pending = new Set<Promise<unknown>>();
   const auth = buildAuth(authDb, origin, secret, mail, (task) => {
@@ -33,7 +37,11 @@ export async function buildApp({
   const app = Fastify({
     bodyLimit: 16384,
     requestTimeout: 15000,
-    trustProxy: false,
+    trustProxy: trustLoopbackProxy
+      ? (address, hop) =>
+          hop === 0 &&
+          ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(address)
+      : false,
     logger: false,
   });
   app.addHook("onClose", async () => {
@@ -83,9 +91,28 @@ export async function buildApp({
     },
   );
 
-  app.get("/api/health", async () => {
-    await Promise.all([authDb.query("SELECT 1"), appDb.query("SELECT 1")]);
-    return { status: "ok" };
+  if (logOperations) {
+    app.addHook("onResponse", async (req, reply) => {
+      console.log(
+        JSON.stringify({
+          time: new Date().toISOString(),
+          event: "http.completed",
+          method: req.method,
+          status: reply.statusCode,
+          durationMs: Math.round(reply.elapsedTime),
+        }),
+      );
+    });
+  }
+  const probe = { config: { rateLimit: false as const } };
+  app.get("/api/live", probe, async () => ({ status: "ok" }));
+  app.get("/api/health", probe, async (_req, reply) => {
+    try {
+      await Promise.all([authDb.query("SELECT 1"), appDb.query("SELECT 1")]);
+      return { status: "ok" };
+    } catch {
+      return reply.code(503).send({ status: "unavailable" });
+    }
   });
   registerAuthRoutes(app, auth, origin, authDb, appDb);
 

@@ -66,3 +66,9 @@ Planejamento realizado com GPT-6.2 Astra após a autorização “faça”. High
 O ensaio tests/ensaio-restauracao.sh recuperou schema e dados sintéticos em outra base PostgreSQL 17 do mesmo cluster. A leitura com o papel restrito confirmou o isolamento e o valor persistido. A recuperação em outro host a partir de cópia externa criptografada segue pendente. A seleção comercial depende de cotação, disponibilidade, limites e autorização. O endpoint de saúde e os serviços locais responderam durante a inspeção.
 
 Próxima etapa: Fase 5B, configuração e implementação. O Módulo 29 recomenda GPT-6.2 Sol Medium para configurar pipelines, serviços, backups, alertas e testes operacionais. Começar pelo ambiente isolado. Aguardar a confirmação da troca ou autorização para manter a configuração atual. O deploy público requer autorização própria.
+
+# Checkpoint da Fase 5B
+
+A configuração operacional foi implementada com GPT-6.2 Sol. Foram adicionados o pipeline do GitHub Actions, o comando de início com ambiente injetado, sondas de vida e prontidão, logs HTTP mínimos e scripts de backup criptografado, recuperação e sondagem. O ensaio em um segundo cluster isolado confirmou restauração de dados e RLS e rejeitou arquivo truncado antes de executar pg_restore. A checagem controlada de sondas confirmou 200 e 503 nos estados esperados. O ambiente aprovado ainda precisa de hospedagem, domínio, SMTP, armazenamento externo e destino de alertas.
+
+Próxima etapa: Fase 6, SEO, landing page e apresentação, também em GPT-6.2 Sol Medium.

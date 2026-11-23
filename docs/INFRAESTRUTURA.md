@@ -65,3 +65,26 @@ Hipóteses de planejamento por usuário ativo por mês: 20 propostas a 4 KB incr
 | 5000 | 100000 | 400 MB | 50 GB | 10000 |
 
 Usar unidades decimais. Somar à simulação o custo fixo mensal do host, domínio e monitoramento, a base inicial, cópias retidas e tráfego de sondas mesmo com zero usuários. Para cada linha, somar as tarifas dos fornecedores e excedentes sobre as respectivas cotas. Dividir pelos ativos para obter custo por usuário quando houver ativos. Margem de contribuição depende de receita acordada, número de organizações pagantes e custos variáveis. Tarifas, conversão e preço do produto ainda não verificados impedem um total monetário confiável. Antes da ativação, registrar teto autorizado, verificar bloqueio de excedentes e aprovar qualquer serviço que possa gerar cobrança. Escalar horizontalmente exigirá compartilhar limites comerciais hoje mantidos por processo.
+
+## Operação preparada na Fase 5B
+
+O GitHub Actions inicia PostgreSQL e Mailpit descartáveis. Executa checagem de tipos, lint, formatação, build, testes integrados, Chromium, ensaio de recuperação, auditoria de dependências e verificação de segredos. O build web fica disponível por SHA como artefato de CI. O job exige apenas leitura do repositório.
+
+### Processo e sondas
+
+No host, execute `npm ci --ignore-scripts` e `npm run build`. Inicie com `npm run start:host` após injetar o ambiente e aplicar o schema com identidade administrativa separada. Use `NODE_ENV=production`, `APP_ORIGIN` com o domínio HTTPS e as variáveis de banco e SMTP documentadas pelo ambiente local. Se um proxy na própria máquina for o único ingresso, configure-o para sobrescrever X-Forwarded-For com o endereço observado e habilite `TRUST_LOOPBACK_PROXY=1`. O processo escuta em loopback. Valide que outros processos no host não podem enviar tráfego de clientes pelo ingresso interno.
+
+O endpoint `/api/live` responde pela vida do processo. O endpoint `/api/health` verifica as duas conexões do banco e retorna 503 se qualquer uma falhar. O processo em produção registra método, código HTTP e duração em JSON. Para acionar o monitorador existente após três falhas consecutivas, aponte-o para o resultado de `bash scripts/check-health.sh https://ORIGEM`. O script não configura destinatários. A URL pública, o provedor SMTP e o destino de alertas dependem do ambiente aprovado.
+
+### Armazenar e recuperar uma cópia
+
+Instale os clientes PostgreSQL compatíveis e o GnuPG no host de operação. Use um chaveiro operacional isolado com a chave pública de recuperação. Confira seu fingerprint por canal independente. Configure libpq com identidade de backup, TLS verificado e arquivo de credencial com modo 0600.
+
+```sh
+bash scripts/backup.sh "/diretorio-privado/retivvo.gpg" "$FINGERPRINT" pg_dump --format=custom
+bash scripts/restore.sh "/diretorio-privado/retivvo.gpg" pg_restore --dbname="$BANCO_DESCARTAVEL"
+```
+
+Use um nome datado e único por cópia diária. O backup publica o arquivo apenas ao terminar e rejeita substituir um arquivo existente. Programe transferência para o armazenamento externo e alerte pela idade da última cópia confirmada. O armazenamento deve controlar quem pode gerar e substituir objetos. O fingerprint verifica o destinatário, e a criptografia verifica integridade, enquanto o controle de escrita no destino protege a origem da cópia. A chave privada fica com a equipe de recuperação. Antes de restaurar em cluster novo, recrie as identidades e proprietários adequados a partir dos registros protegidos. O restaurador usa arquivo temporário privado, exige confirmação de descriptografia íntegra e aplica o dump em uma transação. Reserve espaço para a cópia descriptografada.
+
+O ensaio automatizado gera uma chave descartável, recupera a cópia em um cluster novo sem rede e verifica tanto o registro quanto a RLS após recriar os papéis. O teste negativo confirma que a cópia truncada não é entregue ao restaurador. SMTP externo, guarda externa, agendamento, entrega de alertas, domínio, TLS do host e deploy público seguem para verificação no ambiente aprovado.

@@ -7,6 +7,7 @@
   },
   "scripts": {
     "db:prepare": "node scripts/prepare.mjs",
+    "start:host": "node server/start.ts",
     "start": "node --env-file=.env.api server/start.ts",
     "typecheck": "tsc --noEmit",
     "test": "node --test tests/security.test.ts",
