@@ -1,3 +1,4 @@
+import { expectAccessible } from "./accessibility.ts";
 import { test, expect } from "@playwright/test";
 import { randomBytes } from "node:crypto";
 import { buildApp } from "../server/app.ts";
@@ -56,7 +57,12 @@ test("cadastro, MFA e jornada comercial persistida pelo navegador", async ({
   const address = "fluxo-" + suffix + "@example.test";
   const password = randomBytes(24).toString("hex");
   await page.goto(origin);
+  await expectAccessible(page);
   await page.getByRole("link", { name: "Criar conta" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Criar conta" }),
+  ).toBeVisible();
+  await expectAccessible(page);
   await page.getByLabel("Nome", { exact: true }).fill("Operador de teste");
   await page.getByLabel("E-mail").fill(address);
   await page.getByLabel("Nova senha").fill(password);
@@ -118,6 +124,7 @@ test("cadastro, MFA e jornada comercial persistida pelo navegador", async ({
   await page.getByRole("button", { name: "Criar organização" }).click();
   await goTo("Clientes");
   await page.getByRole("button", { name: "Novo cliente" }).click();
+  await expectAccessible(page);
   await page.getByLabel("Nome do cliente").fill("Oficina de teste");
   await page.getByRole("button", { name: "Salvar", exact: true }).click();
   await expect(
@@ -126,16 +133,25 @@ test("cadastro, MFA e jornada comercial persistida pelo navegador", async ({
 
   await goTo("Propostas");
   await page.getByRole("button", { name: "Nova proposta" }).click();
+  await expectAccessible(page);
   await page.getByLabel("Título").fill("Instalação");
   await page
     .locator("select[name=clientId]")
     .selectOption({ label: "Oficina de teste" });
-  await page.getByLabel("Valor em reais").fill("1234,56");
+  const amount = page.getByLabel("Valor em reais");
+  await amount.fill("1234,567");
+  expect(
+    await amount.evaluate(
+      (input) => (input as HTMLInputElement).validity.patternMismatch,
+    ),
+  ).toBe(true);
+  await amount.fill("1234,56");
   await page.getByLabel("Data de envio").fill("2026-11-18");
   await page.getByRole("button", { name: "Salvar", exact: true }).click();
   await expect(page.getByText("Instalação", { exact: true })).toBeVisible();
   await goTo("Acompanhamentos");
   await page.getByRole("button", { name: "Novo acompanhamento" }).click();
+  await expectAccessible(page);
   await page
     .locator("select[name=proposalId]")
     .selectOption({ label: "Instalação" });
@@ -203,9 +219,36 @@ test("cadastro, MFA e jornada comercial persistida pelo navegador", async ({
   }
   await goTo("Relatórios");
   await expect(page.getByText(/1\.234,56/)).toBeVisible();
+  await expectAccessible(page);
   await page.getByLabel("De", { exact: true }).fill("2026-11-19");
   await page.getByRole("button", { name: "Aplicar período de envio" }).click();
   await expect(page.getByText("Nenhuma proposta no período.")).toBeVisible();
+  const organizations = await page.request.get(origin + "/api/organizations");
+  expect(organizations.ok()).toBeTruthy();
+  const [{ id }] = await organizations.json();
+  expect(id).toBeTruthy();
+  const routes = ["/clients", "/proposals", "/reports"];
+  const timings = [];
+  for (let round = 0; round < 10; round += 1) {
+    timings.push(
+      ...(await Promise.all(
+        routes.map(async (path) => {
+          const start = performance.now();
+          const response = await page.request.get(
+            origin + "/api/organizations/" + id + path,
+          );
+          expect(response.status()).toBe(200);
+          await response.json();
+          return performance.now() - start;
+        }),
+      )),
+    );
+  }
+  const sorted = timings.sort((a, b) => a - b);
+  const p95 = sorted[Math.ceil(sorted.length * 0.95) - 1];
+  console.log(
+    `Leituras autenticadas: ${timings.length}, p95 ${p95.toFixed(1)} ms, máximo ${sorted.at(-1)?.toFixed(1)} ms.`,
+  );
   await page.getByRole("button", { name: "Sair", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Entrar" })).toBeVisible();
 });

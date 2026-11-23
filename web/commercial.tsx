@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { request, errorMessage, ApiError } from "./api.ts";
+import { money, parseAmount } from "./money.ts";
 import { ActionForm, Notice, Pager, useData } from "./ui.tsx";
 
 type Entity = { id: string };
@@ -23,17 +24,7 @@ type Followup = Entity & {
   outcome: string;
 };
 const statuses = { open: "Em aberto", won: "Ganha", lost: "Perdida" };
-const brl = new Intl.NumberFormat("pt-BR", {
-  style: "currency",
-  currency: "BRL",
-});
 const date = (iso: string) => iso.split("-").reverse().join("/");
-function money(cents: string) {
-  const padded = cents.padStart(3, "0");
-  return brl
-    .format(BigInt(padded.slice(0, -2)))
-    .replace(/,00$/, "," + padded.slice(-2));
-}
 
 function Listing<T extends Entity>({
   path,
@@ -219,11 +210,6 @@ function Listing<T extends Entity>({
       )}
     </section>
   );
-}
-
-function parseAmount(value: string) {
-  const [whole, fraction = ""] = value.split(/[,.]/);
-  return Number(whole) * 100 + Number(fraction.padEnd(2, "0"));
 }
 
 function Related<T extends Entity>({

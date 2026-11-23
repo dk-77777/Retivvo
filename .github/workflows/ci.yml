@@ -28,6 +28,7 @@ jobs:
           docker compose up -d --wait --wait-timeout 90
           npm run db:prepare
       - run: npm test
+      - run: npm run test:deploy
       - run: npx --no-install playwright install --with-deps chromium
       - run: npm run test:e2e
       - run: bash tests/ensaio-restauracao.sh
