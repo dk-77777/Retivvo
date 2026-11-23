@@ -55,7 +55,8 @@ test("cadastro, MFA e jornada comercial persistida pelo navegador", async ({
 }) => {
   const address = "fluxo-" + suffix + "@example.test";
   const password = randomBytes(24).toString("hex");
-  await page.goto(origin + "/cadastro");
+  await page.goto(origin);
+  await page.getByRole("link", { name: "Criar conta" }).click();
   await page.getByLabel("Nome", { exact: true }).fill("Operador de teste");
   await page.getByLabel("E-mail").fill(address);
   await page.getByLabel("Nova senha").fill(password);

@@ -46,23 +46,9 @@ export function PublicAccount({ refresh }: { refresh: () => void }) {
   }
   return (
     <main className="public">
-      <Link className="brand" to="/">
+      <a className="brand" href="/">
         Retivvo
-      </Link>
-      {pathname === "/" && (
-        <>
-          <h1>Transforme propostas em novas oportunidades.</h1>
-          <p>
-            Você enviou o orçamento. O Retivvo ajuda a cuidar do próximo passo.
-          </p>
-          <div className="row">
-            <Link className="primary" to="/cadastro">
-              Criar conta
-            </Link>
-            <Link to="/entrar">Entrar</Link>
-          </div>
-        </>
-      )}
+      </a>
       {pathname === "/cadastro" && (
         <>
           <h1>Criar conta</h1>

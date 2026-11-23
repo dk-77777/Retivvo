@@ -8,7 +8,12 @@ const app = await buildApp({
   logOperations: process.env.NODE_ENV === "production",
   trustLoopbackProxy: process.env.TRUST_LOOPBACK_PROXY === "1",
 });
-await registerWeb(app);
+await registerWeb(
+  app,
+  process.env.NODE_ENV === "production" && process.env.SEO_INDEXABLE === "1"
+    ? resources.origin
+    : undefined,
+);
 app.addHook("onClose", async () => {
   await Promise.all([resources.authDb.end(), resources.appDb.end()]);
 });

@@ -278,7 +278,7 @@ function App() {
   );
   return (
     <Routes>
-      {["/", "/entrar", "/cadastro", "/recuperar"].map((path) => (
+      {["/entrar", "/cadastro", "/recuperar"].map((path) => (
         <Route
           key={path}
           path={path}
@@ -292,7 +292,7 @@ function App() {
         element={
           <main>
             <h1>Página indisponível</h1>
-            <Link to="/">Ir para o início</Link>
+            <a href="/">Ir para o início</a>
           </main>
         }
       />

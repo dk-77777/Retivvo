@@ -12,7 +12,7 @@
     "typecheck": "tsc --noEmit",
     "test": "node --test tests/security.test.ts",
     "lint": "eslint server scripts web tests/*.ts vite.config.ts playwright.config.ts",
-    "format:check": "prettier --check server scripts web tests/*.ts eslint.config.js vite.config.ts playwright.config.ts index.html",
+    "format:check": "prettier --check server scripts web tests/*.ts eslint.config.js vite.config.ts playwright.config.ts index.html landing.html 404.html",
     "secrets:check": "bash scripts/check-secrets.sh",
     "build": "vite build",
     "test:e2e": "playwright test"

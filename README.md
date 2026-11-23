@@ -48,3 +48,9 @@ npm run secrets:check
 A suíte usa o Docker Compose local, um banco exclusivo por execução e a caixa de e-mail de desenvolvimento. O servidor HTTP pode estar desligado durante os testes. Com o build atualizado, execute `npm run test:e2e` para testar a jornada no Chromium do Playwright. Se a máquina já tiver Chromium compatível, use `RETIVVO_CHROMIUM=/usr/bin/chromium npm run test:e2e`. A suíte inicia uma instância e um banco descartáveis, separados da aplicação de desenvolvimento.
 
 Crie uma conta com um endereço fictício, confirme o cadastro na caixa Mailpit e entre no Retivvo. Configure o autenticador em Minha conta para criar uma organização. Cadastre um cliente, registre uma proposta e agende a próxima ação em Acompanhamentos. Ao concluir um acompanhamento, informe o resultado do contato. Atualize a situação comercial em Propostas. A visão geral e os relatórios leem o estado persistido. O filtro de relatórios abrange a data de envio da proposta, inclusive nos dois limites.
+
+## Publicação da página inicial
+
+O build gera a página inicial estática em português, os assets de compartilhamento e a página 404. A indexação pública é desativada por padrão. Habilite `SEO_INDEXABLE=1` junto a `NODE_ENV=production` apenas quando `APP_ORIGIN` corresponder ao domínio HTTPS público aprovado. Nesse modo, o Fastify entrega o canonical, a imagem de compartilhamento e o sitemap para a raiz. Rotas de acesso e da área autenticada continuam com `noindex`, independentemente da opção pública.
+
+O teste de publicação exercita as duas configurações no Chromium, inclusive com JavaScript desabilitado. Verificação real no Search Console e dados de navegação dependem de domínio público e de uma decisão sobre mensuração.

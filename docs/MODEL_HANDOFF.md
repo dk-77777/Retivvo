@@ -72,3 +72,11 @@ Próxima etapa: Fase 5B, configuração e implementação. O Módulo 29 recomend
 A configuração operacional foi implementada com GPT-6.2 Sol. Foram adicionados o pipeline do GitHub Actions, o comando de início com ambiente injetado, sondas de vida e prontidão, logs HTTP mínimos e scripts de backup criptografado, recuperação e sondagem. O ensaio em um segundo cluster isolado confirmou restauração de dados e RLS e rejeitou arquivo truncado antes de executar pg_restore. A checagem controlada de sondas confirmou 200 e 503 nos estados esperados. O ambiente aprovado ainda precisa de hospedagem, domínio, SMTP, armazenamento externo e destino de alertas.
 
 Próxima etapa: Fase 6, SEO, landing page e apresentação, também em GPT-6.2 Sol Medium.
+
+# Checkpoint da Fase 6
+
+A mesma sessão GPT-6.2 Sol implementou a página comercial estática, CTA de cadastro, FAQ de produto, títulos e descrição, Open Graph, Twitter Card, imagem compartilhável, favicon e 404 com status correto. O servidor habilita canonical e sitemap na publicação HTTPS explicitamente configurada e mantém as rotas da conta e do painel com noindex. A direção visual e o texto do Módulo 30 orientaram o conteúdo. A skill seo-audit foi consultada em coreyhaines31/marketingskills e nenhuma instalação foi necessária.
+
+A jornada comercial e os dois cenários de apresentação passaram no Chromium. Os cenários cobriram a página sem JavaScript, CTA em 320 px, canonical, sitemap, noindex, assets e 404. Nove cenários de integração, build, lint, tipos e formatação passaram. O workflow da Fase 5B concluiu com sucesso no GitHub Actions. Indexação real e Core Web Vitals em produção dependem de publicação em domínio aprovado. Nenhum rastreamento de visitantes está configurado.
+
+Próxima etapa: Fase 7A, testes finais e auditoria preventiva. O Módulo 29 recomenda GPT-6.2 Sol High para executar a bateria de testes e correções. Fase 7B, auditoria aprofundada, tem checkpoint separado. Aguardar confirmação do ajuste de raciocínio ou autorização para continuar na configuração atual.
