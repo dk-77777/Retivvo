@@ -1,3 +1,4 @@
+import { checkDatabase } from "./readiness.ts";
 import type { FastifyInstance } from "fastify";
 import type { Pool } from "pg";
 import type { buildAuth } from "./auth.ts";
@@ -53,6 +54,18 @@ export function registerAuthRoutes(
       if (path === "change-password" && body) body.revokeOtherSessions = true;
       if (path.startsWith("two-factor/") && body?.trustDevice)
         throw new HttpError(400, "Confirme o segundo fator a cada acesso.");
+      if (req.method === "POST" && path === "sign-up/email") {
+        const ready = await checkDatabase(authDb, appDb).catch(() => false);
+        if (!ready) {
+          console.error(
+            JSON.stringify({ event: "auth.signup_database_not_ready" }),
+          );
+          throw new HttpError(
+            503,
+            "O cadastro está indisponível porque o banco ainda não está pronto.",
+          );
+        }
+      }
       const res = await auth.handler(
         new Request(origin + req.url, {
           method: req.method,

@@ -45,141 +45,175 @@ export function PublicAccount({ refresh }: { refresh: () => void }) {
     navigate("/app");
   }
   return (
-    <main className="public">
-      <a className="brand" href="/">
-        Retivvo
-      </a>
-      {pathname === "/cadastro" && (
-        <>
-          <h1>Criar conta</h1>
-          <p>
-            <a href="/privacidade">Política de privacidade</a> ·{" "}
-            <a href="/termos">Termos de uso</a>
-          </p>
-          <ActionForm
-            label="Cadastrar"
-            action={async (fields) => {
-              await auth("sign-up/email", {
-                ...fields,
-                callbackURL: "/entrar",
-              });
-              setMessage("Confira seu e-mail para confirmar o cadastro.");
-            }}
-          >
-            <label>
-              Nome
-              <input name="name" required maxLength={120} autoComplete="name" />
-            </label>
-            {email}
-            {password("password", true)}
-          </ActionForm>
-        </>
-      )}
-      {pathname === "/entrar" && (
-        <>
-          <h1>{challenge ? "Confirmar segundo fator" : "Entrar"}</h1>
-          {challenge ? (
+    <>
+      <header className="site-header">
+        <a className="brand" href="/">
+          Retivvo
+        </a>
+        {pathname !== "/entrar" && <Link to="/entrar">Entrar</Link>}
+      </header>
+      <main className="public account-shell">
+        <section className="account-card">
+          {pathname === "/cadastro" && (
             <>
+              <h1>Criar conta</h1>
+              <p className="account-intro">
+                Comece a organizar suas propostas e os próximos contatos.
+              </p>
               <ActionForm
-                key={String(backup)}
-                label="Confirmar"
-                action={(fields) =>
-                  auth(
-                    backup
-                      ? "two-factor/verify-backup-code"
-                      : "two-factor/verify-totp",
-                    fields,
-                  )
-                }
-                onSaved={signedIn}
-              >
-                <label>
-                  {backup ? "Código de recuperação" : "Código do autenticador"}
-                  <input
-                    name="code"
-                    required
-                    autoComplete="one-time-code"
-                    inputMode={backup ? "text" : "numeric"}
-                  />
-                </label>
-              </ActionForm>
-              <button type="button" onClick={() => setBackup(!backup)}>
-                {backup ? "Usar autenticador" : "Usar código de recuperação"}
-              </button>
-              <button type="button" onClick={() => setChallenge(false)}>
-                Voltar ao login
-              </button>
-            </>
-          ) : (
-            <>
-              <ActionForm
-                label="Entrar"
+                label="Cadastrar"
                 action={async (fields) => {
-                  const result = await auth<{ twoFactorRedirect?: boolean }>(
-                    "sign-in/email",
-                    fields,
-                  );
-                  if (result.twoFactorRedirect) setChallenge(true);
-                  else signedIn();
+                  await auth("sign-up/email", {
+                    ...fields,
+                    callbackURL: "/entrar",
+                  });
+                  setMessage("Confira seu e-mail para confirmar o cadastro.");
                 }}
               >
+                <label>
+                  Nome
+                  <input
+                    name="name"
+                    required
+                    maxLength={120}
+                    autoComplete="name"
+                  />
+                </label>
                 {email}
-                {password()}
+                {password("password", true)}
+                <p className="field-hint">
+                  Use pelo menos 15 caracteres na senha.
+                </p>
               </ActionForm>
-              <div className="row">
-                <Link to="/recuperar">Esqueci minha senha</Link>
-                <Link to="/cadastro">Criar conta</Link>
-              </div>
-              <details>
-                <summary>Reenviar confirmação de e-mail</summary>
+              <p className="account-links">
+                <a href="/privacidade">Política de privacidade</a>
+                <a href="/termos">Termos de uso</a>
+              </p>
+            </>
+          )}
+          {pathname === "/entrar" && (
+            <>
+              <h1>{challenge ? "Confirmar segundo fator" : "Entrar"}</h1>
+              {challenge ? (
+                <>
+                  <ActionForm
+                    key={String(backup)}
+                    label="Confirmar"
+                    action={(fields) =>
+                      auth(
+                        backup
+                          ? "two-factor/verify-backup-code"
+                          : "two-factor/verify-totp",
+                        fields,
+                      )
+                    }
+                    onSaved={signedIn}
+                  >
+                    <label>
+                      {backup
+                        ? "Código de recuperação"
+                        : "Código do autenticador"}
+                      <input
+                        name="code"
+                        required
+                        autoComplete="one-time-code"
+                        inputMode={backup ? "text" : "numeric"}
+                      />
+                    </label>
+                  </ActionForm>
+                  <button type="button" onClick={() => setBackup(!backup)}>
+                    {backup
+                      ? "Usar autenticador"
+                      : "Usar código de recuperação"}
+                  </button>
+                  <button type="button" onClick={() => setChallenge(false)}>
+                    Voltar ao login
+                  </button>
+                </>
+              ) : (
+                <>
+                  <ActionForm
+                    label="Entrar"
+                    action={async (fields) => {
+                      const result = await auth<{
+                        twoFactorRedirect?: boolean;
+                      }>("sign-in/email", fields);
+                      if (result.twoFactorRedirect) setChallenge(true);
+                      else signedIn();
+                    }}
+                  >
+                    {email}
+                    {password()}
+                  </ActionForm>
+                  <div className="row">
+                    <Link to="/recuperar">Esqueci minha senha</Link>
+                    <Link to="/cadastro">Criar conta</Link>
+                  </div>
+                  <details>
+                    <summary>Reenviar confirmação de e-mail</summary>
+                    <ActionForm
+                      label="Reenviar"
+                      action={async (fields) => {
+                        await auth("send-verification-email", {
+                          ...fields,
+                          callbackURL: "/entrar",
+                        });
+                        setMessage("Confira sua caixa de entrada.");
+                      }}
+                    >
+                      {email}
+                    </ActionForm>
+                  </details>
+                </>
+              )}
+            </>
+          )}
+          {pathname === "/recuperar" && (
+            <>
+              <h1>Recuperar acesso</h1>
+              {token ? (
                 <ActionForm
-                  label="Reenviar"
+                  label="Alterar senha"
+                  action={(fields) =>
+                    auth("reset-password", { ...fields, token })
+                  }
+                  onSaved={() => navigate("/entrar", { replace: true })}
+                >
+                  {password("newPassword", true)}
+                </ActionForm>
+              ) : (
+                <ActionForm
+                  label="Solicitar link"
                   action={async (fields) => {
-                    await auth("send-verification-email", {
+                    await auth("request-password-reset", {
                       ...fields,
-                      callbackURL: "/entrar",
+                      redirectTo: window.location.origin + "/recuperar",
                     });
-                    setMessage("Confira sua caixa de entrada.");
+                    setMessage(
+                      "Se o e-mail estiver cadastrado, você receberá um link.",
+                    );
                   }}
                 >
                   {email}
                 </ActionForm>
-              </details>
+              )}
             </>
           )}
-        </>
-      )}
-      {pathname === "/recuperar" && (
-        <>
-          <h1>Recuperar acesso</h1>
-          {token ? (
-            <ActionForm
-              label="Alterar senha"
-              action={(fields) => auth("reset-password", { ...fields, token })}
-              onSaved={() => navigate("/entrar", { replace: true })}
-            >
-              {password("newPassword", true)}
-            </ActionForm>
-          ) : (
-            <ActionForm
-              label="Solicitar link"
-              action={async (fields) => {
-                await auth("request-password-reset", {
-                  ...fields,
-                  redirectTo: window.location.origin + "/recuperar",
-                });
-                setMessage(
-                  "Se o e-mail estiver cadastrado, você receberá um link.",
-                );
-              }}
-            >
-              {email}
-            </ActionForm>
+          {message && (
+            <div className="account-feedback">
+              <Notice>{message}</Notice>
+              {pathname === "/cadastro" && (
+                <>
+                  <Link to="/entrar">
+                    Ir para o login ou reenviar confirmação
+                  </Link>
+                </>
+              )}
+            </div>
           )}
-        </>
-      )}
-      {message && <Notice>{message}</Notice>}
-    </main>
+        </section>
+      </main>
+    </>
   );
 }
 

@@ -1,3 +1,4 @@
+import { checkDatabase } from "./readiness.ts";
 import Fastify, { type FastifyRequest } from "fastify";
 import helmet from "@fastify/helmet";
 import rateLimit from "@fastify/rate-limit";
@@ -114,11 +115,11 @@ export async function buildApp({
     { config: { rateLimit: { max: 30, timeWindow: 60000 } } },
     async (_req, reply) => {
       try {
-        await Promise.all([authDb.query("SELECT 1"), appDb.query("SELECT 1")]);
-        return { status: "ok" };
+        if (await checkDatabase(authDb, appDb)) return { status: "ok" };
       } catch {
-        return reply.code(503).send({ status: "unavailable" });
+        // A sonda devolve o mesmo estado para falhas de conexão e de schema.
       }
+      return reply.code(503).send({ status: "unavailable" });
     },
   );
   registerAuthRoutes(app, auth, origin, authDb, appDb);

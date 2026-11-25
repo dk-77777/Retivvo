@@ -71,6 +71,42 @@ test("segurança integrada com banco temporário e SMTP local", async (t) => {
   const password = randomBytes(24).toString("hex");
   const auth = "/api/auth/";
   const orgs = "/api/organizations";
+  await t.test(
+    "cadastro informa banco incompleto antes de criar a conta",
+    async () => {
+      const migration = await bootstrap(dbName);
+      await migration.connect();
+      const email = "incompleto-" + randomUUID() + "@example.test";
+      try {
+        await migration.query(
+          "REVOKE INSERT (event, status) ON crm.audit FROM retivvo_app",
+        );
+        const guest = browser();
+        assert.equal((await guest.send("GET", "/api/health")).statusCode, 503);
+        const rejected = await guest.send("POST", auth + "sign-up/email", {
+          email,
+          password,
+          name: "Ensaio de instalação incompleta",
+        });
+        assert.equal(rejected.statusCode, 503);
+        assert.match(rejected.json().error, /banco ainda não está pronto/);
+        assert.equal(
+          (
+            await migration.query(
+              'SELECT id FROM public."user" WHERE email=$1',
+              [email],
+            )
+          ).rowCount,
+          0,
+        );
+      } finally {
+        await migration.query(
+          "GRANT INSERT (event, status) ON crm.audit TO retivvo_app",
+        );
+        await migration.end();
+      }
+    },
+  );
   async function account(b: ReturnType<typeof browser>) {
     const email = "ensaio-" + randomUUID() + "@example.test";
     const signup = await b.send("POST", auth + "sign-up/email", {

@@ -43,6 +43,8 @@ npm start
 
 A interface e a API usam a mesma origem em 127.0.0.1:3000. A API escuta nesse endereço e consulta os dois papéis do banco em GET /api/health. O script de preparação gera .env.api com modo 0600 na primeira execução e aplica as migrações pendentes. Preserve esse arquivo ao reutilizar o volume. SMTP de desenvolvimento e a caixa Mailpit estão restritos a loopback, nas portas 1025 e 8025. Use remetente e destinatários fictícios nesse ambiente.
 
+Se o cadastro informar que o banco ainda não está pronto, confira a saída de `npm run db:prepare` e abra `http://127.0.0.1:3000/api/health`. A instalação precisa retornar `{"status":"ok"}` antes de cadastrar. Se a conta for criada mas a confirmação não chegar, verifique a caixa `http://127.0.0.1:8025` e use **Reenviar confirmação de e-mail** na tela Entrar. As mensagens do Mailpit ficam na máquina que está rodando o Retivvo.
+
 As rotas de conta ficam em /api/auth. As rotas /api/organizations e /api/organizations/:org/clients utilizam sessão por cookie. As mutações requerem o cabeçalho Origin igual a APP_ORIGIN. Consulte a [documentação de segurança](docs/SEGURANCA.md) para permissões e o [teste integrado](tests/security.test.ts) para exemplos completos de cadastro, MFA, acesso comercial e revogação.
 
 ```sh
