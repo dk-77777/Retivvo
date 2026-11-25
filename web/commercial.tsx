@@ -45,7 +45,10 @@ function Listing<T extends Entity>({
   filters?: ReactNode;
   query?: string;
 }) {
-  const [offset, setOffset] = useState(0);
+  const [page, setPage] = useState({ filter: query, offset: 0 });
+  const offset = page.filter === query ? page.offset : 0;
+  const setOffset = (next: number) => setPage({ filter: query, offset: next });
+  const [search, setSearch] = useState("");
   const [edit, setEdit] = useState<T | null>();
   const creationKey = useRef<string>(undefined);
   const editHeading = useRef<HTMLHeadingElement>(null);
@@ -59,7 +62,13 @@ function Listing<T extends Entity>({
   const [notice, setNotice] = useState("");
   const [confirm, setConfirm] = useState<string>();
   const [deleting, setDeleting] = useState(false);
-  const list = useData<T[]>(path + "?offset=" + offset + query);
+  const list = useData<T[]>(
+    path +
+      "?offset=" +
+      offset +
+      query +
+      (search ? "&q=" + encodeURIComponent(search) : ""),
+  );
   useEffect(() => {
     if (confirm) cancelDeletion.current?.focus();
   }, [confirm]);
@@ -141,6 +150,18 @@ function Listing<T extends Entity>({
           </button>
         </article>
       )}
+      <ActionForm
+        label="Buscar"
+        action={async (fields) => {
+          setOffset(0);
+          setSearch(String(fields.q ?? "").trim());
+        }}
+      >
+        <label>
+          Buscar em {title.toLowerCase()}
+          <input type="search" name="q" maxLength={120} />
+        </label>
+      </ActionForm>
       {filters}
       {notice && <Notice>{notice}</Notice>}
       {list.error && (
@@ -150,7 +171,11 @@ function Listing<T extends Entity>({
       )}
       {!list.data && !list.error && <Notice>Carregando…</Notice>}
       {list.data?.length === 0 && (
-        <Notice>Nenhum registro nesta página.</Notice>
+        <Notice>
+          {search
+            ? "Nenhum registro corresponde à busca."
+            : "Nenhum registro nesta página."}
+        </Notice>
       )}
       {!!list.data?.length && (
         <ul className="records">
@@ -291,7 +316,6 @@ export function Proposals({ path }: { path: string }) {
   const [filter, setFilter] = useState("");
   return (
     <Listing<Proposal>
-      key={filter}
       path={path + "/proposals"}
       title="Propostas"
       label="Nova proposta"

@@ -39,7 +39,10 @@ export function PublicAccount({ refresh }: { refresh: () => void }) {
   const [challenge, setChallenge] = useState(false);
   const [backup, setBackup] = useState(false);
   const [message, setMessage] = useState("");
-  const token = new URLSearchParams(search).get("token");
+  const parameters = new URLSearchParams(search);
+  const token = parameters.get("token");
+  const verificationFailed = parameters.has("error");
+  const verified = parameters.get("verificacao") === "1" && !verificationFailed;
   function signedIn() {
     refresh();
     navigate("/app");
@@ -65,7 +68,7 @@ export function PublicAccount({ refresh }: { refresh: () => void }) {
                 action={async (fields) => {
                   await auth("sign-up/email", {
                     ...fields,
-                    callbackURL: "/entrar",
+                    callbackURL: "/entrar?verificacao=1",
                   });
                   setMessage("Confira seu e-mail para confirmar o cadastro.");
                 }}
@@ -94,6 +97,17 @@ export function PublicAccount({ refresh }: { refresh: () => void }) {
           {pathname === "/entrar" && (
             <>
               <h1>{challenge ? "Confirmar segundo fator" : "Entrar"}</h1>
+              {verified && (
+                <Notice>
+                  E-mail confirmado. Entre com seu e-mail e senha.
+                </Notice>
+              )}
+              {verificationFailed && (
+                <p role="alert">
+                  O link de confirmação está inválido ou expirou. Peça um novo
+                  link abaixo.
+                </p>
+              )}
               {challenge ? (
                 <>
                   <ActionForm
@@ -137,7 +151,10 @@ export function PublicAccount({ refresh }: { refresh: () => void }) {
                     action={async (fields) => {
                       const result = await auth<{
                         twoFactorRedirect?: boolean;
-                      }>("sign-in/email", fields);
+                      }>("sign-in/email", {
+                        ...fields,
+                        callbackURL: "/entrar?verificacao=1",
+                      });
                       if (result.twoFactorRedirect) setChallenge(true);
                       else signedIn();
                     }}
@@ -149,14 +166,17 @@ export function PublicAccount({ refresh }: { refresh: () => void }) {
                     <Link to="/recuperar">Esqueci minha senha</Link>
                     <Link to="/cadastro">Criar conta</Link>
                   </div>
-                  <details>
+                  <details
+                    key={String(verificationFailed)}
+                    open={verificationFailed || undefined}
+                  >
                     <summary>Reenviar confirmação de e-mail</summary>
                     <ActionForm
                       label="Reenviar"
                       action={async (fields) => {
                         await auth("send-verification-email", {
                           ...fields,
-                          callbackURL: "/entrar",
+                          callbackURL: "/entrar?verificacao=1",
                         });
                         setMessage("Confira sua caixa de entrada.");
                       }}

@@ -72,7 +72,13 @@ test("cadastro, MFA e jornada comercial persistida pelo navegador", async ({
   });
   const mail = await mailedUrl(address, "Confirmar e-mail no Retivvo");
   expect(mail.origin).toBe(origin);
+  const staleLink = new URL(mail);
+  staleLink.searchParams.set("token", "invalido");
+  await page.goto(staleLink.href);
+  await expect(page.getByRole("alert")).toContainText("inválido ou expirou");
+  await expect(page.getByRole("button", { name: "Reenviar" })).toBeVisible();
   await page.goto(mail.href);
+  await expect(page.getByRole("status")).toContainText("E-mail confirmado");
   await page
     .getByRole("textbox", { name: "E-mail", exact: true })
     .fill(address);
@@ -240,6 +246,23 @@ test("cadastro, MFA e jornada comercial persistida pelo navegador", async ({
       .evaluate((el) => el.getBoundingClientRect().height);
     expect(height).toBeGreaterThanOrEqual(44);
   }
+  const proposalSearch = page.getByRole("searchbox", {
+    name: "Buscar em propostas",
+  });
+  await proposalSearch.fill("oficina");
+  await page.getByRole("button", { name: "Buscar", exact: true }).click();
+  await expect(page.getByRole("heading", { name: longName })).toBeVisible();
+  await page.getByLabel("Filtrar situação").selectOption("lost");
+  await expect(
+    page.getByText("Nenhum registro corresponde à busca."),
+  ).toBeVisible();
+  await page.getByLabel("Filtrar situação").selectOption("won");
+  await expect(page.getByRole("heading", { name: longName })).toBeVisible();
+  await proposalSearch.fill("%");
+  await page.getByRole("button", { name: "Buscar", exact: true }).click();
+  await expect(
+    page.getByText("Nenhum registro corresponde à busca."),
+  ).toBeVisible();
   await goTo("Relatórios");
   await expect(page.getByText(/1\.234,56/)).toBeVisible();
   await expectAccessible(page);

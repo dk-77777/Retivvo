@@ -9,6 +9,7 @@ type InOrg = <T>(
   work: (db: PoolClient, org: string, owner: boolean) => Promise<T>,
 ) => Promise<T>;
 const idParams = z.object({ id: z.uuid() });
+export const searchTerm = z.string().trim().max(120).optional();
 const pagination = z.coerce.number().int().min(0).max(100000).default(0);
 const status = z.enum(["open", "won", "lost"]);
 const proposalInput = z.strictObject({
@@ -48,14 +49,21 @@ export function registerCommercial(app: FastifyInstance, inOrg: InOrg) {
   app.get(proposals, (req) =>
     inOrg(req, async (db, org) => {
       const q = z
-        .strictObject({ offset: pagination, status: status.optional() })
+        .strictObject({
+          offset: pagination,
+          status: status.optional(),
+          q: searchTerm,
+        })
         .parse(req.query);
       return (
         await db.query(
           `SELECT ${proposalFields}, (SELECT name FROM crm.clients c WHERE c.org_id=p.org_id AND c.id=p.client_id) AS "clientName" FROM crm.proposals p
       WHERE org_id=$1 AND ($2::text IS NULL OR status=$2)
+        AND ($4::text IS NULL OR strpos(lower(p.title), lower($4)) > 0 OR EXISTS (
+          SELECT FROM crm.clients c WHERE c.org_id=p.org_id AND c.id=p.client_id
+            AND strpos(lower(c.name), lower($4)) > 0))
       ORDER BY sent_on DESC,id LIMIT 50 OFFSET $3`,
-          [org, q.status, q.offset],
+          [org, q.status, q.offset, q.q],
         )
       ).rows;
     }),
@@ -117,14 +125,21 @@ export function registerCommercial(app: FastifyInstance, inOrg: InOrg) {
   app.get(followups, (req) =>
     inOrg(req, async (db, org) => {
       const q = z
-        .strictObject({ offset: pagination, proposalId: z.uuid().optional() })
+        .strictObject({
+          offset: pagination,
+          proposalId: z.uuid().optional(),
+          q: searchTerm,
+        })
         .parse(req.query);
       return (
         await db.query(
           `SELECT ${actionFields}, (SELECT title FROM crm.proposals p WHERE p.org_id=f.org_id AND p.id=f.proposal_id) AS "proposalTitle" FROM crm.followups f
       WHERE org_id=$1 AND ($2::uuid IS NULL OR proposal_id=$2)
+        AND ($4::text IS NULL OR strpos(lower(f.action), lower($4)) > 0 OR EXISTS (
+          SELECT FROM crm.proposals p WHERE p.org_id=f.org_id AND p.id=f.proposal_id
+            AND strpos(lower(p.title), lower($4)) > 0))
       ORDER BY done,due_on,id LIMIT 50 OFFSET $3`,
-          [org, q.proposalId, q.offset],
+          [org, q.proposalId, q.offset, q.q],
         )
       ).rows;
     }),

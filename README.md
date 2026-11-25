@@ -57,7 +57,7 @@ npm run secrets:check
 
 A suíte usa o Docker Compose local, um banco exclusivo por execução e a caixa de e-mail de desenvolvimento. O servidor HTTP pode estar desligado durante os testes. Com o build atualizado, execute `npm run test:e2e` para testar a jornada no Chromium do Playwright. Se a máquina já tiver Chromium compatível, use `RETIVVO_CHROMIUM=/usr/bin/chromium npm run test:e2e`. A suíte inicia uma instância e um banco descartáveis, separados da aplicação de desenvolvimento.
 
-Crie uma conta com um endereço fictício, confirme o cadastro na caixa Mailpit e entre no Retivvo. Configure o autenticador em Minha conta para criar uma organização. Cadastre um cliente, registre uma proposta e agende a próxima ação em Acompanhamentos. Ao concluir um acompanhamento, informe o resultado do contato. Atualize a situação comercial em Propostas. A visão geral e os relatórios leem o estado persistido. O filtro de relatórios abrange a data de envio da proposta, inclusive nos dois limites.
+Crie uma conta com um endereço fictício, confirme o cadastro na caixa Mailpit e entre no Retivvo. Configure o autenticador em Minha conta para criar uma organização. Cadastre um cliente, registre uma proposta e agende a próxima ação em Acompanhamentos. Ao concluir um acompanhamento, informe o resultado do contato. Atualize a situação comercial em Propostas. A busca nas listas consulta toda a organização selecionada. Ela encontra clientes pelo nome, propostas pelo título ou cliente e acompanhamentos pela ação ou proposta. A visão geral e os relatórios leem o estado persistido. O filtro de relatórios abrange a data de envio da proposta, inclusive nos dois limites.
 
 ## Publicação da página inicial
 

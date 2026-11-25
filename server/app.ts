@@ -8,7 +8,7 @@ import { z } from "zod";
 import type { Pool, PoolClient } from "pg";
 import { buildAuth, type SendMail } from "./auth.ts";
 import { createRecord } from "./creation.ts";
-import { registerCommercial } from "./commercial.ts";
+import { registerCommercial, searchTerm } from "./commercial.ts";
 
 type Options = {
   origin: string;
@@ -278,12 +278,15 @@ export async function buildApp({
       const page = z
         .strictObject({
           offset: z.coerce.number().int().min(0).max(100000).default(0),
+          q: searchTerm,
         })
         .parse(req.query);
       return (
         await db.query(
-          "SELECT id,name FROM crm.clients WHERE org_id=$1 ORDER BY name,id LIMIT 50 OFFSET $2",
-          [org, page.offset],
+          `SELECT id,name FROM crm.clients WHERE org_id=$1
+           AND ($3::text IS NULL OR strpos(lower(name), lower($3)) > 0)
+           ORDER BY name,id LIMIT 50 OFFSET $2`,
+          [org, page.offset, page.q],
         )
       ).rows;
     }),

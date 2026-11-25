@@ -307,6 +307,26 @@ test("segurança integrada com banco temporário e SMTP local", async (t) => {
       );
       const added = await a.send("POST", root + "/followups", task);
       assert.equal(added.statusCode, 201);
+      assert.equal(
+        (await a.send("GET", root + "/clients?q=CLIMAT")).json()[0].id,
+        c.id,
+      );
+      assert.equal(
+        (await a.send("GET", root + "/proposals?q=climat")).json()[0].id,
+        id,
+      );
+      assert.equal(
+        (await a.send("GET", root + "/followups?q=LIGAR")).json()[0].id,
+        added.json().id,
+      );
+      assert.deepEqual(
+        (await b.send("GET", other + "/proposals?q=climat")).json(),
+        [],
+      );
+      assert.deepEqual(
+        (await b.send("GET", other + "/followups?q=ligar")).json(),
+        [],
+      );
       const foreign = await resources.appDb.connect();
       try {
         await foreign.query("BEGIN");
