@@ -6,6 +6,7 @@ import { registerAuthRoutes } from "./auth-routes.ts";
 import { z } from "zod";
 import type { Pool, PoolClient } from "pg";
 import { buildAuth, type SendMail } from "./auth.ts";
+import { createRecord } from "./creation.ts";
 import { registerCommercial } from "./commercial.ts";
 
 type Options = {
@@ -106,14 +107,18 @@ export async function buildApp({
   }
   const probe = { config: { rateLimit: false as const } };
   app.get("/api/live", probe, async () => ({ status: "ok" }));
-  app.get("/api/health", probe, async (_req, reply) => {
-    try {
-      await Promise.all([authDb.query("SELECT 1"), appDb.query("SELECT 1")]);
-      return { status: "ok" };
-    } catch {
-      return reply.code(503).send({ status: "unavailable" });
-    }
-  });
+  app.get(
+    "/api/health",
+    { config: { rateLimit: { max: 30, timeWindow: 60000 } } },
+    async (_req, reply) => {
+      try {
+        await Promise.all([authDb.query("SELECT 1"), appDb.query("SELECT 1")]);
+        return { status: "ok" };
+      } catch {
+        return reply.code(503).send({ status: "unavailable" });
+      }
+    },
+  );
   registerAuthRoutes(app, auth, origin, authDb, appDb);
 
   async function scoped<T>(
@@ -195,6 +200,7 @@ export async function buildApp({
       const quota = await orgLimit(req);
       if (!quota.isAllowed && quota.isExceeded)
         throw new HttpError(429, "Limite de operações da organização.");
+      await db.query("SELECT set_config('retivvo.org',$1,true)", [org]);
       return work(db, org, result.rows[0].owner);
     });
   }
@@ -277,18 +283,23 @@ export async function buildApp({
     }),
   );
   app.post(clients, async (req, reply) => {
-    const { name } = clientName.parse(req.body);
-    const row = await inOrg(
-      req,
-      async (db, org) =>
-        (
-          await db.query(
-            "INSERT INTO crm.clients(org_id,name) VALUES ($1,$2) RETURNING id,name",
-            [org, name],
-          )
-        ).rows[0],
+    const data = clientName.parse(req.body);
+    const created = await inOrg(req, (db, org) =>
+      createRecord(
+        db,
+        org,
+        req.headers["idempotency-key"],
+        "clients",
+        "id,name",
+        data,
+        (id) =>
+          db.query(
+            "INSERT INTO crm.clients(id,org_id,name) VALUES ($1,$2,$3) RETURNING id,name",
+            [id, org, data.name],
+          ),
+      ),
     );
-    return reply.code(201).send(row);
+    return reply.code(created.status).send(created.row);
   });
   app.route({
     method: ["GET", "PATCH", "DELETE"],

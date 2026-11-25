@@ -1,0 +1,4 @@
+FROM postgres:17-alpine@sha256:f9cf3e1f0066f0eb0c48707d864f0ac5941e9ff454a072077d97a4d278d07d73
+# O entrypoint oficial só usa gosu quando inicia como root.
+RUN rm /usr/local/bin/gosu
+USER postgres

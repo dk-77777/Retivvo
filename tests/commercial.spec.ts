@@ -5,7 +5,7 @@ import { buildApp } from "../server/app.ts";
 import { getResources } from "../server/config.ts";
 import { registerWeb } from "../server/web.ts";
 import { bootstrap, localConfig, prepare } from "../scripts/prepare.mjs";
-import { mailedUrl, totp } from "./local-mail.ts";
+import { mailedUrl, totp, testSmtp } from "./local-mail.ts";
 
 const port = Number(process.env.RETIVVO_TEST_PORT ?? 3337);
 const origin = "http://127.0.0.1:" + port;
@@ -27,7 +27,7 @@ test.beforeAll(async () => {
     PGPORT: "5432",
     PGDATABASE: dbName,
     APP_ORIGIN: origin,
-    SMTP_URL: "smtp://127.0.0.1:1025",
+    SMTP_URL: testSmtp,
   });
   cleanup.push(() =>
     Promise.all([resources.appDb.end(), resources.authDb.end()]),
@@ -147,7 +147,30 @@ test("cadastro, MFA e jornada comercial persistida pelo navegador", async ({
   ).toBe(true);
   await amount.fill("1234,56");
   await page.getByLabel("Data de envio").fill("2026-11-18");
+  let firstKey: string | undefined;
+  await page.route(
+    "**/api/organizations/*/proposals",
+    async (route) => {
+      firstKey = route.request().headers()["idempotency-key"];
+      const committed = await route.fetch();
+      expect(committed.status()).toBe(201);
+      await route.abort("failed");
+    },
+    { times: 1 },
+  );
   await page.getByRole("button", { name: "Salvar", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText(
+    "Não foi possível acessar",
+  );
+  expect(firstKey).toBeTruthy();
+  const replay = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      response.url().endsWith("/proposals"),
+  );
+  await page.getByRole("button", { name: "Salvar", exact: true }).click();
+  expect((await replay).status()).toBe(200);
+  expect((await replay).request().headers()["idempotency-key"]).toBe(firstKey);
   await expect(page.getByText("Instalação", { exact: true })).toBeVisible();
   await goTo("Acompanhamentos");
   await page.getByRole("button", { name: "Novo acompanhamento" }).click();
@@ -249,6 +272,22 @@ test("cadastro, MFA e jornada comercial persistida pelo navegador", async ({
   console.log(
     `Leituras autenticadas: ${timings.length}, p95 ${p95.toFixed(1)} ms, máximo ${sorted.at(-1)?.toFixed(1)} ms.`,
   );
+  await goTo("Minha conta");
+  await page.getByLabel("Senha atual").fill(password);
+  await page.getByLabel("Nova senha").fill(randomBytes(24).toString("hex"));
+  await page.getByRole("button", { name: "Salvar senha" }).click();
+  await expect(
+    page.getByText(/Confirme o segundo fator novamente/),
+  ).toBeVisible();
+  await page
+    .getByLabel("Código do autenticador")
+    .fill(totp("otpauth://totp/test?secret=" + key));
+  await page.getByRole("button", { name: "Confirmar autenticador" }).click();
+  await expect(
+    page.getByText("Segundo fator confirmado nesta sessão."),
+  ).toBeVisible();
+  await goTo("Propostas");
+  await expect(page.getByRole("heading", { name: longName })).toBeVisible();
   await page.getByRole("button", { name: "Sair", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Entrar" })).toBeVisible();
 });

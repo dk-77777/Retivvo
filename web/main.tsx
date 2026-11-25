@@ -128,7 +128,10 @@ function Workspace({
   session: Session;
   refresh: () => void;
 }) {
-  const orgs = useData<Org[]>("/organizations");
+  const orgs = useData<Org[]>(
+    "/organizations",
+    session.user.id + "/" + Boolean(session.session.mfaVerified),
+  );
   const [selection, setSelection] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const menuButton = useRef<HTMLButtonElement>(null);

@@ -1,5 +1,14 @@
 import assert from "node:assert/strict";
+import { localConfig } from "../scripts/prepare.mjs";
+
 import { createHmac } from "node:crypto";
+
+const local = await localConfig();
+export const testSmtp =
+  "smtp://127.0.0.1:" +
+  (process.env.RETIVVO_TEST_SMTP_PORT ??
+    local.RETIVVO_TEST_SMTP_PORT ??
+    "1025");
 
 export function totp(uri: string) {
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
@@ -17,7 +26,12 @@ export function totp(uri: string) {
 }
 
 export async function mailedUrl(email: string, subject: string) {
-  const api = "http://127.0.0.1:8025/api/v1";
+  const api =
+    "http://127.0.0.1:" +
+    (process.env.RETIVVO_TEST_MAIL_PORT ??
+      local.RETIVVO_TEST_MAIL_PORT ??
+      "8025") +
+    "/api/v1";
   const until = Date.now() + 20000;
   do {
     const search = await fetch(

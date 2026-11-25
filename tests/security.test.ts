@@ -1,4 +1,4 @@
-import { totp, mailedUrl } from "./local-mail.ts";
+import { totp, mailedUrl, testSmtp } from "./local-mail.ts";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
@@ -28,7 +28,7 @@ test("segurança integrada com banco temporário e SMTP local", async (t) => {
     PGHOST: "127.0.0.1",
     PGPORT: "5432",
     APP_ORIGIN: "http://127.0.0.1:3000",
-    SMTP_URL: "smtp://127.0.0.1:1025",
+    SMTP_URL: testSmtp,
   });
   cleanup.push(() =>
     Promise.all([resources.appDb.end(), resources.authDb.end()]),
@@ -47,12 +47,14 @@ test("segurança integrada com banco temporário e SMTP local", async (t) => {
         url: string,
         body?: Record<string, unknown>,
         source = origin,
+        headers: Record<string, string> = {},
       ) {
         const res = await app.inject({
           method,
           url,
           remoteAddress: address,
           headers: {
+            ...headers,
             origin: source,
             cookie: Array.from(jar, ([k, v]) => k + "=" + v).join("; "),
           },
@@ -273,8 +275,8 @@ test("segurança integrada com banco temporário e SMTP local", async (t) => {
       try {
         await foreign.query("BEGIN");
         await foreign.query(
-          "SELECT set_config('retivvo.actor',$1,true),set_config('retivvo.mfa','true',true)",
-          [bob.id],
+          "SELECT set_config('retivvo.actor',$1,true),set_config('retivvo.mfa','true',true),set_config('retivvo.org',$2,true)",
+          [bob.id, beta.id],
         );
         assert.equal(
           (
@@ -349,6 +351,166 @@ test("segurança integrada com banco temporário e SMTP local", async (t) => {
       );
     },
   );
+  await t.test(
+    "reenvio concorrente, alteração do conteúdo e exclusão",
+    async () => {
+      const key = { "idempotency-key": randomUUID() };
+      const create = (url: string, body: Record<string, unknown>) =>
+        a.send("POST", root + url, body, origin, key);
+      const client = await create("/clients", { name: "Ensaio de reenvio" });
+      assert.equal(client.statusCode, 201);
+      const data = {
+        clientId: client.json().id,
+        title: "Cotação",
+        amountCents: 4500,
+        sentOn: "2026-11-23",
+        status: "open",
+        notes: "",
+      };
+      const replies = await Promise.all([
+        create("/proposals", data),
+        create("/proposals", data),
+      ]);
+      assert.deepEqual(replies.map((r) => r.statusCode).sort(), [200, 201]);
+      assert.deepEqual(replies[0].json(), replies[1].json());
+      assert.equal(
+        (await create("/proposals", { ...data, amountCents: 4600 })).statusCode,
+        409,
+      );
+      const id = replies[0].json().id;
+      const followup = {
+        proposalId: id,
+        action: "Telefonar",
+        dueOn: "2026-11-24",
+        done: false,
+        outcome: "",
+      };
+      const task = await create("/followups", followup);
+      assert.equal(task.statusCode, 201);
+      assert.equal((await create("/followups", followup)).statusCode, 200);
+      assert.deepEqual((await a.send("GET", root + "/reports")).json(), {
+        statuses: [{ status: "open", count: 1, amountCents: "4500" }],
+        pending: 1,
+      });
+      assert.equal(
+        (await a.send("DELETE", root + "/followups/" + task.json().id))
+          .statusCode,
+        204,
+      );
+      assert.equal((await create("/followups", followup)).statusCode, 409);
+      assert.equal(
+        (await a.send("DELETE", root + "/proposals/" + id)).statusCode,
+        204,
+      );
+      assert.equal(
+        (await a.send("DELETE", root + "/clients/" + client.json().id))
+          .statusCode,
+        200,
+      );
+    },
+  );
+  await t.test(
+    "a seleção de empresa limita inclusive um membro das duas organizações",
+    async () => {
+      const receipts = { "idempotency-key": randomUUID() };
+      const records = [];
+      for (const [owner, path] of [
+        [a, root],
+        [b, other],
+      ] as const) {
+        assert.equal(
+          (await owner.send("POST", path + "/members", { userId: maria.id }))
+            .statusCode,
+          201,
+        );
+        const c = await member.send(
+          "POST",
+          path + "/clients",
+          { name: "Cliente de ensaio" },
+          origin,
+          receipts,
+        );
+        assert.equal(c.statusCode, 201);
+        const p = await member.send("POST", path + "/proposals", {
+          clientId: c.json().id,
+          title: "Cotação",
+          amountCents: 123,
+          sentOn: "2026-11-23",
+          status: "open",
+          notes: "",
+        });
+        assert.equal(p.statusCode, 201);
+        const f = await member.send("POST", path + "/followups", {
+          proposalId: p.json().id,
+          action: "Confirmar",
+          dueOn: "2026-11-24",
+          done: false,
+          outcome: "",
+        });
+        assert.equal(f.statusCode, 201);
+        records.push({
+          client: c.json().id,
+          proposal: p.json().id,
+          followup: f.json().id,
+          path,
+          owner,
+        });
+      }
+      const db = await resources.appDb.connect();
+      try {
+        await db.query("BEGIN");
+        await db.query("SELECT set_config('retivvo.actor',$1,true)", [
+          maria.id,
+        ]);
+        assert.equal(
+          (await db.query("SELECT id FROM crm.clients")).rowCount,
+          0,
+        );
+        for (const [index, org] of [alpha.id, beta.id].entries()) {
+          await db.query("SELECT set_config('retivvo.org',$1,true)", [org]);
+          for (const [table, id] of [
+            ["clients", records[index].client],
+            ["proposals", records[index].proposal],
+            ["followups", records[index].followup],
+          ]) {
+            assert.deepEqual(
+              (await db.query("SELECT id FROM crm." + table)).rows,
+              [{ id }],
+            );
+          }
+          assert.deepEqual(
+            (await db.query("SELECT record_id FROM crm.creation_requests"))
+              .rows,
+            [{ record_id: records[index].client }],
+          );
+        }
+      } finally {
+        await db.query("ROLLBACK");
+        db.release();
+      }
+      for (const { client, proposal, followup, path, owner } of records) {
+        assert.equal(
+          (await owner.send("DELETE", path + "/followups/" + followup))
+            .statusCode,
+          204,
+        );
+        assert.equal(
+          (await owner.send("DELETE", path + "/proposals/" + proposal))
+            .statusCode,
+          204,
+        );
+        assert.equal(
+          (await owner.send("DELETE", path + "/clients/" + client)).statusCode,
+          200,
+        );
+        assert.equal(
+          (await owner.send("DELETE", path + "/members/" + maria.id))
+            .statusCode,
+          204,
+        );
+      }
+    },
+  );
   await t.test("RLS mesmo sem filtros SQL e separação dos papéis", async () => {
     const client = await a.send("POST", root + "/clients", {
       name: "Persistido",
@@ -370,8 +532,8 @@ test("segurança integrada com banco temporário e SMTP local", async (t) => {
       );
       await db.query("BEGIN");
       await db.query(
-        "SELECT set_config('retivvo.actor',$1,true),set_config('retivvo.mfa','true',true)",
-        [bob.id],
+        "SELECT set_config('retivvo.actor',$1,true),set_config('retivvo.mfa','true',true),set_config('retivvo.org',$2,true)",
+        [bob.id, beta.id],
       );
       assert.deepEqual((await db.query("SELECT * FROM crm.clients")).rows, []);
       assert.equal(
@@ -553,6 +715,99 @@ test("segurança integrada com banco temporário e SMTP local", async (t) => {
       } finally {
         await audit.end();
       }
+    },
+  );
+  await t.test(
+    "configuração de cookies HTTPS, recusa de transporte aberto e diagnóstico mínimo",
+    async (t) => {
+      const https = "https://retivvo.example";
+      assert.throws(() =>
+        getResources({ ...config, NODE_ENV: "production", APP_ORIGIN: origin }),
+      );
+      assert.throws(() =>
+        getResources({
+          ...config,
+          NODE_ENV: "production",
+          APP_ORIGIN: https,
+          SMTP_URL: "smtp://smtp.example",
+        }),
+      );
+      const hosted = await buildApp({
+        ...resources,
+        origin: https,
+        mail: async () => {
+          throw new Error("falha sintética privada");
+        },
+      });
+      const logs = t.mock.method(console, "error", () => {});
+      try {
+        const headers = { origin: https };
+        const login = await hosted.inject({
+          method: "POST",
+          url: auth + "sign-in/email",
+          headers,
+          payload: { email: bob.email, password },
+        });
+        assert.equal(login.statusCode, 200);
+        assert.equal(login.json().twoFactorRedirect, true);
+        const verified = await hosted.inject({
+          method: "POST",
+          url: auth + "two-factor/verify-backup-code",
+          headers: {
+            ...headers,
+            cookie: login.cookies.map((c) => c.name + "=" + c.value).join("; "),
+          },
+          payload: { code: beta.backup },
+        });
+        assert.equal(verified.statusCode, 200);
+        assert.ok(
+          verified.cookies.some(
+            (c) =>
+              c.name.endsWith("session_token") &&
+              c.value &&
+              c.secure &&
+              c.httpOnly &&
+              c.sameSite === "Lax" &&
+              !c.domain,
+          ),
+        );
+        const reset = await hosted.inject({
+          method: "POST",
+          url: auth + "request-password-reset",
+          headers,
+          payload: { email: bob.email },
+        });
+        assert.equal(reset.statusCode, 200);
+      } finally {
+        await hosted.close();
+      }
+      const messages = logs.mock.calls.map((call) =>
+        JSON.parse(String(call.arguments[0])),
+      );
+      assert.ok(messages.some((value) => value.event === "auth.mail_failed"));
+      for (const value of messages) {
+        assert.deepEqual(Object.keys(value).sort(), ["event", "level"]);
+        assert.ok(
+          ["auth.mail_failed", "auth.diagnostic"].includes(value.event),
+        );
+      }
+    },
+  );
+  await t.test(
+    "a sonda de banco tem quota independente da sonda de vida",
+    async () => {
+      const monitor = browser();
+      for (let n = 0; n < 30; n++)
+        assert.equal(
+          (await monitor.send("GET", "/api/health")).statusCode,
+          200,
+        );
+      assert.equal((await monitor.send("GET", "/api/health")).statusCode, 429);
+      assert.equal((await monitor.send("GET", "/api/live")).statusCode, 200);
+      assert.equal(
+        (await browser().send("GET", "/api/health")).statusCode,
+        200,
+      );
     },
   );
   await t.test("limitação de tentativas de login", async () => {

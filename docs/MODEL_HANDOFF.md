@@ -88,3 +88,13 @@ A bateria final foi executada com GPT-6.2 Sol após a autorização “faça”.
 A execução local aprovou dois testes unitários, nove cenários de integração, três cenários de navegador, o ensaio do processo de publicação e a restauração criptografada em cluster separado. Foram adicionados teste do ponto de entrada e cheque de acessibilidade à verificação automatizada. O npm audit e o Gitleaks passaram. Nenhum ambiente público foi provisionado nesta fase.
 
 Próxima etapa: Fase 7B, auditoria final. O Módulo 29 recomenda GPT-6.2 Astra com raciocínio Extra High para avaliar isolamento, segurança, requisitos P0 e prontidão. Aguardar confirmação da troca ou autorização para continuar com a configuração atual.
+
+# Checkpoint da Fase 7B
+
+A auditoria final foi executada após a confirmação “faça”. A recomendação do Módulo 29 era GPT-6.2 Astra com raciocínio Extra High. O seletor de modelo e o nível efetivamente usado não foram verificados.
+
+AUDITORIA_FINAL.md contém a matriz dos módulos 0 a 31, os critérios do módulo 24, a varredura de imagens e a decisão de manter o beta fechado. As migrações 009–010 e server/app, commercial e creation aplicam a organização selecionada e a idempotência das criações. Na autenticação e na interface foram corrigidos os diagnósticos operacionais e a reconfirmação do fator após troca de senha. Landing e cadastro dão acesso aos dois rascunhos jurídicos. Compose, CI e scripts de verificação evoluíram para examinar o histórico Git, atualizar o Mailpit e restaurar um banco em imagem sem root com volume separado. A identidade comercial e o Prompt Master foram preservados.
+
+Foram verificadas 16 aprovações do runner Node (2 unitárias, 13 subtestes de integração e o agregador), 3 cenários Chromium, restauração criptografada de Bookworm em Alpine e o processo HTTP do build. Tipos, lint e formatação passaram. O npm audit e o Gitleaks não reportaram achados. Trivy encontrou quatro ocorrências críticas no banco Bookworm existente e uma alta, sem críticas, na variante para volume novo. A íntegra dos achados quantitativos e as condições de correção constam na matriz. Nenhum serviço pago foi contratado.
+
+A próxima etapa é a Fase 8, beta controlado e evolução. O Módulo 29 recomenda GPT-6.2 Sol com raciocínio Medium para manutenção e ajustes rápidos. Aguardar confirmação da troca manual, ou autorização para manter a configuração atual. Antes de receber usuários reais, resolver o alerta alto no runtime escolhido, aprovar hospedagem, domínio, envio de e-mail, backup externo e alertas, validar dispositivos e concluir a revisão jurídica e o canal de atendimento aos titulares. Publicação em produção, migração de dados existentes e convites a participantes dependem de autorização específica.

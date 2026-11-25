@@ -11,10 +11,13 @@ jobs:
   verify:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    env:
+      COMPOSE_FILE: compose.yaml:compose.banco-novo.yaml
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           persist-credentials: false
+          fetch-depth: 0
       - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238
         with:
           node-version: '24'

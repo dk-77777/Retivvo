@@ -16,6 +16,16 @@ export function buildAuth(
   mail: SendMail,
   background: (task: Promise<unknown>) => void,
 ) {
+  const sendAccountMail: SendMail = async (recipient, subject, link) => {
+    try {
+      await mail(recipient, subject, link);
+    } catch {
+      console.error(
+        JSON.stringify({ event: "auth.mail_failed", level: "error" }),
+      );
+      throw new Error("Falha na entrega de e-mail transacional.");
+    }
+  };
   return betterAuth({
     appName: "Retivvo",
     baseURL: origin,
@@ -23,6 +33,11 @@ export function buildAuth(
     database,
     trustedOrigins: [origin],
     telemetry: { enabled: false },
+    logger: {
+      level: "warn",
+      log: (level) =>
+        console.error(JSON.stringify({ event: "auth.diagnostic", level })),
+    },
     advanced: {
       backgroundTasks: { handler: background },
       disableOriginCheck: false,
@@ -61,14 +76,14 @@ export function buildAuth(
       revokeSessionsOnPasswordReset: true,
       resetPasswordTokenExpiresIn: 900,
       sendResetPassword: ({ user, url }) =>
-        mail(user.email, "Recuperar acesso ao Retivvo", url),
+        sendAccountMail(user.email, "Recuperar acesso ao Retivvo", url),
     },
     emailVerification: {
       sendOnSignUp: true,
       autoSignInAfterVerification: false,
       expiresIn: 3600,
       sendVerificationEmail: ({ user, url }) =>
-        mail(user.email, "Confirmar e-mail no Retivvo", url),
+        sendAccountMail(user.email, "Confirmar e-mail no Retivvo", url),
     },
     user: {
       deleteUser: {
@@ -85,7 +100,11 @@ export function buildAuth(
             });
         },
         sendDeleteAccountVerification: ({ user, url }) =>
-          mail(user.email, "Confirmar exclusão da conta Retivvo", url),
+          sendAccountMail(
+            user.email,
+            "Confirmar exclusão da conta Retivvo",
+            url,
+          ),
       },
     },
     plugins: [

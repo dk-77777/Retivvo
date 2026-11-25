@@ -6,7 +6,15 @@ O Retivvo reúne clientes, propostas e acompanhamentos por organização. A inte
 
 ## Iniciar e verificar o banco local
 
-Na raiz do checkout, use Node.js e Docker com Compose v2. Na primeira execução, gere uma senha exclusiva de desenvolvimento. O comando protege o arquivo contra sobrescrita. Em um ambiente já preparado, preserve o arquivo existente associado ao volume.
+Na raiz do checkout, use Node.js e Docker com Compose v2. Em **instalação nova** com as portas locais livres, selecione a variante PostgreSQL sem root antes de executar os comandos Compose desta página. Ela usa um volume próprio. Mantenha a mesma configuração nos comandos subsequentes.
+
+```sh
+export COMPOSE_FILE=compose.yaml:compose.banco-novo.yaml
+```
+
+Quem já tem um volume Bookworm deve manter sua configuração atual até planejar e autorizar a restauração lógica em um projeto separado. A [auditoria das imagens](docs/AUDITORIA_FINAL.md) registra as versões examinadas e o alerta alto pendente na variante para instalações novas.
+
+Na primeira execução, gere uma senha exclusiva de desenvolvimento. O comando protege o arquivo contra sobrescrita. Em um ambiente já preparado, preserve o arquivo existente associado ao volume.
 
 ```sh
 (umask 077 && set -C && node -e 'console.log("POSTGRES_PASSWORD="+require("node:crypto").randomBytes(32).toString("hex"))' > .env)
@@ -54,3 +62,9 @@ Crie uma conta com um endereço fictício, confirme o cadastro na caixa Mailpit 
 O build gera a página inicial estática em português, os assets de compartilhamento e a página 404. A indexação pública é desativada por padrão. Habilite `SEO_INDEXABLE=1` junto a `NODE_ENV=production` apenas quando `APP_ORIGIN` corresponder ao domínio HTTPS público aprovado. Nesse modo, o Fastify entrega o canonical, a imagem de compartilhamento e o sitemap para a raiz. Rotas de acesso e da área autenticada continuam com `noindex`, independentemente da opção pública.
 
 O teste de publicação exercita as duas configurações no Chromium, inclusive com JavaScript desabilitado. Verificação real no Search Console e dados de navegação dependem de domínio público e de uma decisão sobre mensuração.
+
+## Auditoria e aceite para beta
+
+A [auditoria final](docs/AUDITORIA_FINAL.md) registra a cobertura dos 32 módulos, as evidências locais, os riscos e os critérios que ainda dependem da hospedagem e do operador. Os rascunhos de privacidade e termos são acessíveis pela página inicial e pelo cadastro.
+
+Para testar com uma segunda caixa Mailpit local, informe `RETIVVO_TEST_SMTP_PORT` e `RETIVVO_TEST_MAIL_PORT` no ambiente de teste ou no arquivo privado .env.api. As conexões de teste permanecem em loopback. Em um checkout novo, as portas padrão são 1025 e 8025. A caixa local pode conter links de conta. Preserve seu conteúdo antes de substituir um contêiner existente, se ainda for necessário.

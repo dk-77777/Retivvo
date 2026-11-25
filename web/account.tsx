@@ -52,6 +52,10 @@ export function PublicAccount({ refresh }: { refresh: () => void }) {
       {pathname === "/cadastro" && (
         <>
           <h1>Criar conta</h1>
+          <p>
+            <a href="/privacidade">Política de privacidade</a> ·{" "}
+            <a href="/termos">Termos de uso</a>
+          </p>
           <ActionForm
             label="Cadastrar"
             action={async (fields) => {
@@ -233,7 +237,22 @@ export function Profile({
               </li>
             ))}
           </ul>
-          {!session.session.mfaVerified && (
+          {session.session.mfaVerified && (
+            <button type="button" onClick={() => setEnrollment(undefined)}>
+              Ocultar códigos
+            </button>
+          )}
+        </>
+      )}
+      {(enrollment || session.user.twoFactorEnabled) &&
+        !session.session.mfaVerified && (
+          <>
+            {!enrollment && (
+              <p>
+                Confirme o segundo fator novamente para administrar suas
+                organizações nesta sessão.
+              </p>
+            )}
             <ActionForm
               label="Confirmar autenticador"
               action={(fields) => auth("two-factor/verify-totp", fields)}
@@ -250,14 +269,8 @@ export function Profile({
                 />
               </label>
             </ActionForm>
-          )}
-          {session.session.mfaVerified && (
-            <button type="button" onClick={() => setEnrollment(undefined)}>
-              Ocultar códigos
-            </button>
-          )}
-        </>
-      )}
+          </>
+        )}
       <h2>Alterar senha</h2>
       <ActionForm
         label="Salvar senha"

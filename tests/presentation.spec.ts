@@ -47,6 +47,20 @@ for (const origin of [undefined, "https://retivvo.example"]) {
       expect((await app.inject("/entrar")).headers["x-robots-tag"]).toBe(
         "noindex, nofollow",
       );
+      for (const title of ["Política de privacidade", "Termos de uso"]) {
+        await page.getByRole("link", { name: title }).click();
+        await expect(page.getByRole("heading", { level: 1 })).toHaveText(title);
+        await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
+          "content",
+          "noindex, nofollow",
+        );
+        expect(
+          (await app.inject(new URL(page.url()).pathname)).headers[
+            "x-robots-tag"
+          ],
+        ).toContain("noindex");
+        await page.getByRole("link", { name: "Retivvo", exact: true }).click();
+      }
       expect(
         (await app.inject("/favicon.png")).headers["content-type"],
       ).toContain("image/png");

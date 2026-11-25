@@ -47,6 +47,7 @@ function Listing<T extends Entity>({
 }) {
   const [offset, setOffset] = useState(0);
   const [edit, setEdit] = useState<T | null>();
+  const creationKey = useRef<string>(undefined);
   const editHeading = useRef<HTMLHeadingElement>(null);
   const editTrigger = useRef<HTMLButtonElement>(null);
   const deleteTrigger = useRef<HTMLButtonElement>(null);
@@ -95,6 +96,7 @@ function Listing<T extends Entity>({
           className="primary"
           onClick={(event) => {
             editTrigger.current = event.currentTarget;
+            if (edit !== null) creationKey.current = crypto.randomUUID();
             setEdit(null);
             setNotice("");
           }}
@@ -127,6 +129,7 @@ function Listing<T extends Entity>({
                         }).filter(([key]) => key !== "completed"),
                       )
                     : data,
+                edit ? undefined : creationKey.current,
               )
             }
             onSaved={saved}

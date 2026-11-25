@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { PoolClient } from "pg";
 import { z } from "zod";
+import { createRecord } from "./creation.ts";
 import { HttpError } from "./http.ts";
 
 type InOrg = <T>(
@@ -61,14 +62,20 @@ export function registerCommercial(app: FastifyInstance, inOrg: InOrg) {
   );
   app.post(proposals, async (req, reply) => {
     const p = proposalInput.parse(req.body);
-    const row = await inOrg(
-      req,
-      async (db, org) =>
-        (
-          await db.query(
-            `INSERT INTO crm.proposals(org_id,client_id,title,amount_cents,sent_on,status,notes)
-        VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING ${proposalFields}`,
+    const created = await inOrg(req, (db, org) =>
+      createRecord(
+        db,
+        org,
+        req.headers["idempotency-key"],
+        "proposals",
+        proposalFields,
+        p,
+        (id) =>
+          db.query(
+            `INSERT INTO crm.proposals(id,org_id,client_id,title,amount_cents,sent_on,status,notes)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING ${proposalFields}`,
             [
+              id,
               org,
               p.clientId,
               p.title,
@@ -77,10 +84,10 @@ export function registerCommercial(app: FastifyInstance, inOrg: InOrg) {
               p.status,
               p.notes,
             ],
-          )
-        ).rows[0],
+          ),
+      ),
     );
-    return reply.code(201).send(row);
+    return reply.code(created.status).send(created.row);
   });
   app.patch(proposals + "/:id", (req) =>
     inOrg(req, async (db, org) => {
@@ -124,18 +131,23 @@ export function registerCommercial(app: FastifyInstance, inOrg: InOrg) {
   );
   app.post(followups, async (req, reply) => {
     const f = onCreate.parse(req.body);
-    const row = await inOrg(
-      req,
-      async (db, org) =>
-        (
-          await db.query(
-            `INSERT INTO crm.followups(org_id,proposal_id,action,due_on,done,outcome)
-        VALUES ($1,$2,$3,$4,$5,$6) RETURNING ${actionFields}`,
-            [org, f.proposalId, f.action, f.dueOn, f.done, f.outcome],
-          )
-        ).rows[0],
+    const created = await inOrg(req, (db, org) =>
+      createRecord(
+        db,
+        org,
+        req.headers["idempotency-key"],
+        "followups",
+        actionFields,
+        f,
+        (id) =>
+          db.query(
+            `INSERT INTO crm.followups(id,org_id,proposal_id,action,due_on,done,outcome)
+           VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING ${actionFields}`,
+            [id, org, f.proposalId, f.action, f.dueOn, f.done, f.outcome],
+          ),
+      ),
     );
-    return reply.code(201).send(row);
+    return reply.code(created.status).send(created.row);
   });
   app.patch(followups + "/:id", (req) =>
     inOrg(req, async (db, org) => {

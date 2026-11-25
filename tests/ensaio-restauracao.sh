@@ -20,9 +20,11 @@ cleanup() {
 trap cleanup EXIT
 "${pg[@]}" createdb -U retivvo_bootstrap "$source_db"
 source_created=true
-image=$(docker inspect --format '{{.Config.Image}}' "$(docker compose ps -q db)")
+# Também exercita a migração lógica da base existente para o runtime sem root.
+docker compose -f compose.yaml -f compose.banco-novo.yaml build db
+image=$(docker compose -f compose.yaml -f compose.banco-novo.yaml config --images db)
 POSTGRES_PASSWORD=$(node -p "require('node:crypto').randomBytes(32).toString('hex')") \
-  docker run --detach --network none --name "$target_container" -e POSTGRES_PASSWORD \
+  docker run --detach --network none --cap-drop ALL --security-opt no-new-privileges --name "$target_container" -e POSTGRES_PASSWORD \
   -e POSTGRES_USER=retivvo_bootstrap -e POSTGRES_DB=restore "$image" >/dev/null
 target_created=true
 target=(docker exec -i "$target_container")
@@ -67,6 +69,8 @@ DO $$
 BEGIN
   IF EXISTS(SELECT FROM crm.proposals) THEN RAISE EXCEPTION 'Contexto ausente expôs dados'; END IF;
   PERFORM set_config('retivvo.actor','fixture',true), set_config('retivvo.mfa','true',true);
+  IF EXISTS(SELECT FROM crm.proposals) THEN RAISE EXCEPTION 'Empresa sem seleção expôs dados'; END IF;
+  PERFORM set_config('retivvo.org',(SELECT id::text FROM crm.organizations WHERE name='Ensaio'),true);
   IF (SELECT count(*) FROM crm.proposals JOIN crm.clients c ON c.id=client_id
       WHERE amount_cents=123456 AND c.name='Cliente sintético') <> 1 THEN
     RAISE EXCEPTION 'Registro ou autorização ausente';

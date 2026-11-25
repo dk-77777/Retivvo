@@ -1,9 +1,10 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { errorMessage, request, values } from "./api.ts";
 
-export function useData<T>(path: string) {
+export function useData<T>(path: string, scope = "") {
   const [result, setResult] = useState<{
     path: string;
+    scope: string;
     data?: T;
     error?: string;
   }>();
@@ -12,18 +13,18 @@ export function useData<T>(path: string) {
     let current = true;
     request<T>(path).then(
       (data) => {
-        if (current) setResult({ path, data });
+        if (current) setResult({ path, scope, data });
       },
       (error) => {
-        if (current) setResult({ path, error: errorMessage(error) });
+        if (current) setResult({ path, scope, error: errorMessage(error) });
       },
     );
     return () => {
       current = false;
     };
-  }, [path, revision]);
+  }, [path, revision, scope]);
   return {
-    ...(result?.path === path ? result : undefined),
+    ...(result?.path === path && result.scope === scope ? result : undefined),
     refresh: () => setRevision((v) => v + 1),
     reload: () => {
       setResult(undefined);

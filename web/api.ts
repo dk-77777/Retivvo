@@ -10,11 +10,14 @@ export async function request<T>(
   path: string,
   method = "GET",
   body?: unknown,
+  creationKey?: string,
 ): Promise<T> {
   const response = await fetch("/api" + path, {
     method,
-    headers:
-      body === undefined ? undefined : { "Content-Type": "application/json" },
+    headers: {
+      ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+      ...(creationKey ? { "Idempotency-Key": creationKey } : {}),
+    },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const data = response.status === 204 ? null : await response.json();

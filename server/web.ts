@@ -81,6 +81,13 @@ export async function registerWeb(
         .send(html),
     );
   }
+  for (const page of ["privacidade", "termos"]) {
+    app.get("/" + page, (_req, reply) =>
+      reply
+        .header("X-Robots-Tag", blocked)
+        .sendFile(page + ".html", { cacheControl: false }),
+    );
+  }
   for (const file of ["favicon.png", "retivvo-compartilhamento.jpg"]) {
     app.get("/" + file, (_req, reply) =>
       reply.sendFile(file, { cacheControl: false }),

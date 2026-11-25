@@ -33,3 +33,24 @@ Antes do beta, testar HTTPS e encaminhamento de origem na hospedagem escolhida, 
 ## Fluxo comercial da fase 3
 
 A migração 008 aplica RLS às propostas e aos acompanhamentos. As chaves estrangeiras compostas incluem a organização e impedem associar uma proposta a cliente de outra empresa ou um acompanhamento a proposta externa. Excluir um registro com dependências exige encerrar esses vínculos primeiro. O servidor recebe o valor em centavos inteiros e exige o resultado do contato ao concluir um acompanhamento. A visão geral e os relatórios calculam contagens e totais dentro da transação restrita à organização. Totais em centavos atravessam a API como texto decimal para preservar precisão.
+
+## Operação e privacidade verificadas na Fase 7B
+
+O contexto transacional das operações comerciais inclui a empresa selecionada após conferir a associação. A migração 009 aplica políticas restritivas a clientes, propostas e acompanhamentos. Uma pessoa pode listar as organizações a que pertence para escolher aquela em que vai trabalhar.
+
+O formulário de criação mantém a mesma chave UUID durante o reenvio. A API aceita `Idempotency-Key` nos três cadastros comerciais. Quem integra diretamente deve guardar a chave até receber confirmação. O primeiro envio confirmado retorna 201. A repetição com os mesmos dados validados retorna 200 com o registro atual. Conteúdo alterado ou registro já excluído retorna 409. Abrir um novo formulário inicia outra intenção de cadastro. Os recibos guardam identificadores e um digest do conteúdo, têm acesso limitado a usuário e empresa e são removidos no encerramento da conta ou organização. Clientes da API que omitem o cabeçalho mantêm a semântica de criação individual.
+
+Ao aplicar 009 e 010 num destino autorizado, drene as requisições e pare a versão anterior antes de aplicar as migrações. Inicie a versão que estabelece o contexto selecionado e valide a leitura e a escrita de uma organização sintética. Em necessidade de reversão, mantenha o acesso fechado até restabelecer uma combinação de código e políticas compatíveis. O procedimento de recuperação em destino separado consta em INFRAESTRUTURA.
+
+### Dados pessoais e incidentes
+
+| Dados e finalidade | Acesso e retenção observados | Decisão antes do beta |
+| --- | --- | --- |
+| Nome, e-mail e conta para identificar e confirmar acesso | Auth e SMTP transacional. Sessão de oito horas, confirmação de uma hora e recuperação/exclusão de quinze minutos. Validade de token e prazo físico de retenção são distintos | Aprovar base legal, prazos de expurgo e localização de cada operador |
+| Hash de senha, fator, códigos e dados de sessão | Papel de autenticação. Segredo recuperável protegido fora do repositório. Sessão pode registrar IP e agente do navegador | Restringir cofre, cópia de recuperação e acesso administrativo |
+| Cliente, proposta, valor, notas e histórico de contato | Dados limitados à organização, com edição e exclusão autorizadas. Exclusão de conta pessoal não apaga os dados comerciais da empresa | A organização e o operador devem definir responsabilidades e atendimento a titulares |
+| Auditoria, chaves de reenvio, falhas operacionais e backups | Auditoria comercial de apenas inserção para o runtime. Eventos operacionais usam campos predefinidos. Há ensaio de backup criptografado | Aprovar e aplicar retenção operacional e de cópias, expurgo e reconciliação de exclusões após restauração |
+
+Para pedidos de titulares, o responsável deve receber o pedido por canal oficial, verificar a identidade e o vínculo, delimitar a organização, registrar somente o necessário e responder pelo mesmo canal validado. A interface permite consultar e excluir a conta e corrigir registros comerciais. Correção cadastral assistida, acesso a cópias e pedidos referentes a mais de uma empresa exigem atendimento do responsável autorizado. Os textos públicos disponíveis em `/termos` e `/privacidade` são rascunhos até revisão humana.
+
+Em um incidente, o operador registra o horário e o sinal inicial, limita o acesso afetado, preserva evidências com acesso restrito e identifica as organizações e os dados envolvidos. Em comprometimento de credencial, revoga o acesso e avalia a rotação de chaves com o responsável pela recuperação do MFA. O responsável pela privacidade avalia notificações e prazos aplicáveis com apoio jurídico. A retomada requer validação de sessão, isolamento, integridade e monitoramento, seguida do registro de causa e correções. O operador, os contatos e o exercício desse procedimento ainda dependem da implantação.

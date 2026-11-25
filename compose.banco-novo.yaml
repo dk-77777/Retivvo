@@ -1,0 +1,14 @@
+# Usar apenas em um projeto Compose separado, com volume novo ou restauração lógica.
+services:
+  db:
+    image: retivvo-postgres:17-alpine-1
+    pull_policy: build
+    build:
+      context: ./infra/postgres
+      network: none
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    volumes:
+      - pgdata_alpine:/var/lib/postgresql/data
+volumes:
+  pgdata_alpine:
