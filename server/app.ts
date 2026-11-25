@@ -16,6 +16,7 @@ type Options = {
   appDb: Pool;
   mail: SendMail;
   logOperations?: boolean;
+  betaMetrics?: boolean;
   trustLoopbackProxy?: boolean;
 };
 export async function buildApp({
@@ -25,6 +26,7 @@ export async function buildApp({
   appDb,
   mail,
   logOperations = false,
+  betaMetrics = false,
   trustLoopbackProxy = false,
 }: Options) {
   const pending = new Set<Promise<unknown>>();
@@ -200,7 +202,10 @@ export async function buildApp({
       const quota = await orgLimit(req);
       if (!quota.isAllowed && quota.isExceeded)
         throw new HttpError(429, "Limite de operações da organização.");
-      await db.query("SELECT set_config('retivvo.org',$1,true)", [org]);
+      await db.query(
+        "SELECT set_config('retivvo.org',$1,true), set_config('retivvo.beta_metrics',$2,true)",
+        [org, String(betaMetrics)],
+      );
       return work(db, org, result.rows[0].owner);
     });
   }

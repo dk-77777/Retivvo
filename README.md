@@ -65,6 +65,8 @@ O teste de publicação exercita as duas configurações no Chromium, inclusive 
 
 ## Auditoria e aceite para beta
 
+O [relatório de preparação do beta](docs/BETA.md) descreve o ensaio, a coleta opcional de métricas e as condições para convidar empresas.
+
 A [auditoria final](docs/AUDITORIA_FINAL.md) registra a cobertura dos 32 módulos, as evidências locais, os riscos e os critérios que ainda dependem da hospedagem e do operador. Os rascunhos de privacidade e termos são acessíveis pela página inicial e pelo cadastro.
 
 Para testar com uma segunda caixa Mailpit local, informe `RETIVVO_TEST_SMTP_PORT` e `RETIVVO_TEST_MAIL_PORT` no ambiente de teste ou no arquivo privado .env.api. As conexões de teste permanecem em loopback. Em um checkout novo, as portas padrão são 1025 e 8025. A caixa local pode conter links de conta. Preserve seu conteúdo antes de substituir um contêiner existente, se ainda for necessário.

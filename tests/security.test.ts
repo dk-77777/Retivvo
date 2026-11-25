@@ -718,6 +718,114 @@ test("segurança integrada com banco temporário e SMTP local", async (t) => {
     },
   );
   await t.test(
+    "métricas opcionais, deduplicação diária e retenção da coorte",
+    async () => {
+      const report = await bootstrap(dbName);
+      await report.connect();
+      cleanup.push(() => report.end());
+      assert.equal(
+        (await report.query("SELECT 1 FROM crm.beta_activity LIMIT 1"))
+          .rowCount,
+        0,
+      );
+      const betaApp = await buildApp({ ...resources, betaMetrics: true });
+      const login = await betaApp.inject({
+        method: "POST",
+        url: auth + "sign-in/email",
+        headers: { origin },
+        payload: { email: bob.email, password },
+      });
+      try {
+        assert.equal(login.json().twoFactorRedirect, true);
+        const verified = await betaApp.inject({
+          method: "POST",
+          url: auth + "two-factor/verify-totp",
+          headers: {
+            origin,
+            cookie: login.cookies.map((c) => c.name + "=" + c.value).join("; "),
+          },
+          payload: { code: totp(beta.uri) },
+        });
+        assert.equal(verified.statusCode, 200);
+        const cookie = verified.cookies.find((c) =>
+          c.name.endsWith("session_token"),
+        );
+        assert.ok(cookie);
+        const send = (path: string, payload: object) =>
+          betaApp.inject({
+            method: "POST",
+            url: other + path,
+            headers: { origin, cookie: cookie.name + "=" + cookie.value },
+            payload,
+          });
+        const client = await send("/clients", { name: "Ensaio de ativação" });
+        assert.equal(client.statusCode, 201);
+        const proposal = await send("/proposals", {
+          clientId: client.json().id,
+          title: "Proposta do piloto",
+          amountCents: 10,
+          sentOn: "2026-11-01",
+          status: "open",
+          notes: "",
+        });
+        assert.equal(proposal.statusCode, 201);
+        for (const action of ["Primeira ação", "Segunda ação"]) {
+          assert.equal(
+            (
+              await send("/followups", {
+                proposalId: proposal.json().id,
+                action,
+                dueOn: "2026-11-02",
+                done: false,
+                outcome: "",
+              })
+            ).statusCode,
+            201,
+          );
+        }
+        assert.deepEqual(
+          (
+            await report.query(
+              "SELECT kind FROM crm.beta_activity ORDER BY kind",
+            )
+          ).rows,
+          [{ kind: "active" }, { kind: "followup_created" }],
+        );
+        await report.query(
+          "UPDATE crm.beta_activity SET day=DATE '2026-11-01'",
+        );
+        await report.query(
+          "INSERT INTO crm.beta_activity VALUES($1,'2026-11-08','active')",
+          [beta.id],
+        );
+        assert.deepEqual(
+          (
+            await report.query(
+              "SELECT * FROM crm.beta_summary('2026-11-01','2026-11-10')",
+            )
+          ).rows,
+          [{ active: 1, activated: 1, eligible: 0, retained: 0 }],
+        );
+        assert.deepEqual(
+          (
+            await report.query(
+              "SELECT * FROM crm.beta_summary('2026-11-01','2026-11-15')",
+            )
+          ).rows,
+          [{ active: 1, activated: 1, eligible: 1, retained: 1 }],
+        );
+        await assert.rejects(
+          resources.appDb.query(
+            "SELECT * FROM crm.beta_summary('2026-11-01','2026-11-15')",
+          ),
+          { code: "42501" },
+        );
+      } finally {
+        await betaApp.close();
+      }
+    },
+  );
+  await t.test(
     "configuração de cookies HTTPS, recusa de transporte aberto e diagnóstico mínimo",
     async (t) => {
       const https = "https://retivvo.example";

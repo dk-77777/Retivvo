@@ -5,6 +5,7 @@ import { getResources } from "./config.ts";
 const resources = getResources(process.env);
 const app = await buildApp({
   ...resources,
+  betaMetrics: process.env.BETA_METRICS === "1",
   logOperations: process.env.NODE_ENV === "production",
   trustLoopbackProxy: process.env.TRUST_LOOPBACK_PROXY === "1",
 });
